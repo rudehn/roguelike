@@ -7,7 +7,7 @@ import tcod.path
 
 from game.components import Position, Tiles
 from game.tags import IsBlocking, IsIn
-from game.tiles import TILES
+from game.world.tiles import TILES
 
 
 def path_to(actor: tcod.ecs.Entity, dest: Position) -> list[Position]:

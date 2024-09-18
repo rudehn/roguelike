@@ -75,11 +75,17 @@ HP: Final = ("HP", int)
 MaxHP: Final = ("MaxHP", int)
 """Maximum hit points."""
 
-STR: Final = ("STR", int)
-"""Strength stat for the entity."""
+Attack: Final = ("Attack", int)
+"""Damage stat for the entity."""
 
-DEX: Final = ("DEX", int)
-"""Dexterity stat for the entity."""
+# STR: Final = ("STR", int)
+# """Strength stat for the entity."""
+
+# DEX: Final = ("DEX", int)
+# """Dexterity stat for the entity."""
+
+Defense: Final = ("Defense", int)
+"""Defense stat for the entity."""
 
 AI: Final = ("AI", Action)
 """Action for AI actor."""

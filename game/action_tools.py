@@ -10,7 +10,7 @@ import game.states
 from game.action import Action, Impossible, Poll, Success
 from game.actor_tools import can_level_up, update_fov
 from game.components import AI, HP
-from game.messages import add_message
+from game.ui.messages import add_message
 from game.state import State  # noqa: TCH001
 from game.tags import IsIn, IsPlayer
 

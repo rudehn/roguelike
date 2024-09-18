@@ -16,10 +16,10 @@ from game.entity_tools import get_name
 from game.item import ApplyAction
 from game.item_tools import add_to_inventory, equip_item, unequip_item
 from game.map import MapKey
-from game.map_tools import get_map
-from game.messages import add_message
+from game.world.map_tools import get_map
+from game.ui.messages import add_message
 from game.tags import EquippedBy, IsAlive, IsBlocking, IsIn, IsItem, IsPlayer
-from game.tiles import TILES
+from game.world.tiles import TILES
 from game.travel import path_to
 
 

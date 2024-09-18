@@ -9,7 +9,7 @@ from pathlib import Path
 
 import tcod.ecs
 
-import game.world_init
+import game.world.world_init
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,6 @@ def load_world(path: Path) -> tcod.ecs.Registry:
     data = lzma.decompress(data)
     world = pickle.loads(data)  # noqa: S301
     assert isinstance(world, tcod.ecs.Registry)
-    game.world_init.init_creatures(world)
-    game.world_init.init_items(world)
+    game.world.world_init.init_creatures(world)
+    game.world.world_init.init_items(world)
     return world

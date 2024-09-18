@@ -17,10 +17,10 @@ import tcod.tileset
 
 import g
 import game.actor_tools
-import game.procgen
+import game.world.procgen
 import game.states
-import game.world_init
-from game.world_tools import load_world, save_world
+import game.world.world_init
+from game.world.world_tools import load_world, save_world
 
 TITLE = "Nate's Roguelike"
 CONSOLE_SIZE = 80, 50
@@ -105,4 +105,16 @@ TODO
 - retaliate
 - rough skin
 
+- Intro screen
+- Character selection: race/class
+
+story line - somebody took my son? Find him on Floor 20; Robin hood style?
+Damage - D4 + 3
+Implement camera system
+Make dungeons small at low levels but grow larger w/ more/bigger rooms
+
+Implement speed system
+- Loop through entity list, all actors with an AI
+- Player's AI is user input
+- TODO - how to handle rendering?
 """

@@ -13,11 +13,11 @@ from numpy.typing import NDArray  # noqa: TCH002
 import g
 from game.actor_tools import get_player_actor, required_xp_for_level
 from game.components import HP, XP, Floor, Graphic, MapShape, MaxHP, MemoryTiles, Name, Position, Tiles, VisibleTiles
-from game.messages import Message, MessageLog
+from game.ui.messages import Message, MessageLog
 from game.tags import IsAlive, IsGhost, IsIn, IsItem, IsPlayer
-from game.tiles import TILES
+from game.world.tiles import TILES
 
-from . import color
+from .. import color
 
 
 def render_bar(

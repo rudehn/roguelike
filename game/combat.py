@@ -13,17 +13,17 @@ from game.components import (
     AI,
     HP,
     XP,
+    Defense,
     DefenseBonus,
-    DEX,
     Graphic,
     HPBonus,
     MaxHP,
     Name,
     PowerBonus,
     RewardXP,
-    STR,
+    Attack,
 )
-from game.messages import add_message
+from game.ui.messages import add_message
 from game.tags import Affecting, IsAlive, IsBlocking, IsPlayer
 
 logger = logging.getLogger(__name__)
@@ -78,12 +78,14 @@ class CombatAction:
 
 
 def recalculate_stats(actor: tcod.ecs.Entity):
-    max_hp = actor.components.get(MaxHP, 0)
+    pass
+    # TODO - need to keep track of base stats + modifiers to base stats
+    # max_hp = actor.components.get(MaxHP, 0)
 
-    for e in actor.registry.Q.all_of(components=[HPBonus], relations=[(Affecting, actor)]):
-        max_hp += e.components[HPBonus]
+    # for e in actor.registry.Q.all_of(components=[HPBonus], relations=[(Affecting, actor)]):
+    #     max_hp += e.components[HPBonus]
 
-    actor.components[MaxHP] = max_hp
+    # actor.components[MaxHP] = max_hp
 
 
 def get_evade_chance(actor: tcod.ecs.Entity) -> float:
@@ -94,9 +96,9 @@ def get_evade_chance(actor: tcod.ecs.Entity) -> float:
 
     with dex being the only stat affecting
     """
-    dex = actor.components.get(DEX, 0)
-    evade = min(.75, (dex / 2) / 100)
-    return evade
+    # dex = actor.components.get(DEX, 0)
+    # evade = min(.75, (dex / 2) / 100)
+    return 0
 
 def get_crit_chance(actor: tcod.ecs.Entity) -> float:
     """
@@ -106,10 +108,10 @@ def get_crit_chance(actor: tcod.ecs.Entity) -> float:
 
     with DEX being the primary stat
     """
-    dex = actor.components.get(DEX, 0)
-    str_ = actor.components.get(STR, 0)
-    crit_chance = min(.75, (dex + (str_ / 4) ) / 100)
-    return crit_chance
+    # dex = actor.components.get(DEX, 0)
+    # str_ = actor.components.get(STR, 0)
+    # crit_chance = min(.75, (dex + (str_ / 4) ) / 100)
+    return 0
 
 def get_crit_damage_pct(actor: tcod.ecs.Entity) -> float:
     """
@@ -119,10 +121,10 @@ def get_crit_damage_pct(actor: tcod.ecs.Entity) -> float:
 
     with DEX and STR contributing equally
     """
-    dex = actor.components.get(DEX, 0)
-    str_ = actor.components.get(STR, 0)
-    crit_damage = 1 + ((dex + str_) / 100)
-    return crit_damage
+    # dex = actor.components.get(DEX, 0)
+    # str_ = actor.components.get(STR, 0)
+    # crit_damage = 1 + ((dex + str_) / 100)
+    return 1
 
 def get_min_damage(actor: tcod.ecs.Entity) -> int:
     """
@@ -130,11 +132,11 @@ def get_min_damage(actor: tcod.ecs.Entity) -> int:
     power = (STR // 2) + sum(equipment_bonus)
     """
 
-    min_damage = int(actor.components.get(STR, 0) // 2)
+    # min_damage = int(actor.components.get(STR, 0) // 2)
 
-    for e in actor.registry.Q.all_of(components=[PowerBonus], relations=[(Affecting, actor)]):
-        min_damage += e.components[PowerBonus]
-    return min_damage
+    # for e in actor.registry.Q.all_of(components=[PowerBonus], relations=[(Affecting, actor)]):
+    #     min_damage += e.components[PowerBonus]
+    return 0
 
 def get_max_damage(actor: tcod.ecs.Entity) -> int:
     """
@@ -142,24 +144,25 @@ def get_max_damage(actor: tcod.ecs.Entity) -> int:
     power = STR + sum(equipment_bonus)
     """
 
-    max_damage = actor.components.get(STR, 0)
+    # max_damage = actor.components.get(STR, 0)
 
-    for e in actor.registry.Q.all_of(components=[PowerBonus], relations=[(Affecting, actor)]):
-        max_damage += e.components[PowerBonus]
-    return max_damage
+    # for e in actor.registry.Q.all_of(components=[PowerBonus], relations=[(Affecting, actor)]):
+    #     max_damage += e.components[PowerBonus]
+    return 0
 
 def get_attack(actor: tcod.ecs.Entity) -> int:
     """
     Get an entities attack power.
     """
-    rng = actor.registry[None].components[Random]
-    attack_power = rng.randint(get_min_damage(actor), get_max_damage(actor))
+    attack_power = actor.components.get(Attack, 0)
+    for e in actor.registry.Q.all_of(components=[PowerBonus], relations=[(Affecting, actor)]):
+        attack_power += e.components[PowerBonus]
     return attack_power
 
 
 def get_defense(actor: tcod.ecs.Entity) -> int:
     """Get an entities defense power."""
-    defense_power = int(actor.components.get(DEX, 0) // 5)
+    defense_power = actor.components.get(Defense, 0)
     for e in actor.registry.Q.all_of(components=[DefenseBonus], relations=[(Affecting, actor)]):
         defense_power += e.components[DefenseBonus]
     return defense_power

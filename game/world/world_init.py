@@ -7,11 +7,11 @@ from random import Random
 import tcod.ecs
 
 import game.actor_tools
-import game.procgen
+import game.world.procgen
 from game.components import (
     HP,
+    Defense,
     DefenseBonus,
-    DEX,
     EquipSlot,
     Graphic,
     HPBonus,
@@ -22,15 +22,16 @@ from game.components import (
     PowerBonus,
     RewardXP,
     SpawnWeight,
-    STR,
+    Attack,
 )
+from game.creatures import Creatures
 from game.effect import Effect
 from game.effects import Healing
 from game.item import ApplyAction
 from game.item_tools import equip_item
 from game.items import Potion, RandomTargetScroll, TargetScroll
-from game.map_tools import get_map
-from game.messages import MessageLog, add_message
+from game.world.map_tools import get_map
+from game.ui.messages import MessageLog, add_message
 from game.spell import EntitySpell, PositionSpell
 from game.spells import Confusion, Fireball, LightningBolt
 from game.tags import IsActor, IsIn, IsItem, IsPlayer
@@ -45,7 +46,7 @@ def new_world() -> tcod.ecs.Registry:
     init_creatures(world)
     init_items(world)
 
-    map_ = get_map(world, game.procgen.Tombs(1))
+    map_ = get_map(world, game.world.procgen.Tombs(1))
 
     (start,) = world.Q.all_of(tags=["UpStairs"], relations=[(IsIn, map_)])
 
@@ -66,11 +67,11 @@ def init_new_creature(
     ch: int,
     fg: tuple[int, int, int],
     hp: int,
-    strength: int,
-    dexterity: int,
+    attack: int,
+    defense: int,
     xp: int,
-    passives: tuple[Effect, ...] = (),
-    spawn_weight: tuple[tuple[int, int], ...] = (),
+    passives: tuple[Effect, ...] | None = None,
+    spawn_weight: tuple[tuple[int, int], ...] | None = None,
 ) -> None:
     """Setup a new creature type."""
     race = world[name]
@@ -78,8 +79,8 @@ def init_new_creature(
     race.components[Name] = name
     race.components[Graphic] = Graphic(ch, fg)
     race.components[HP] = race.components[MaxHP] = hp
-    race.components[STR] = strength
-    race.components[DEX] = dexterity
+    race.components[Attack] = attack
+    race.components[Defense] = defense
     race.components[RewardXP] = xp
     if passives:
         race.components[Passives] = passives
@@ -89,22 +90,19 @@ def init_new_creature(
 
 def init_creatures(world: tcod.ecs.Registry) -> None:
     """Initialize monster database."""
-    init_new_creature(world, name="player", ch=ord("@"), fg=(255, 255, 255), hp=30, strength=5, dexterity=5, xp=0)
-    init_new_creature(
-        world, name="orc", ch=ord("o"), fg=(63, 127, 63), hp=10, strength=4, dexterity=0, xp=35, spawn_weight=((1, 80),)
-    )
-    init_new_creature(
-        world,
-        name="troll",
-        ch=ord("T"),
-        fg=(0, 127, 0),
-        hp=16,
-        strength=8,
-        dexterity=1,
-        xp=100,
-        passives=(Healing(1),),
-        spawn_weight=((3, 15), (5, 30), (7, 60)),
-    )
+    for creature in Creatures:
+        init_new_creature(
+            world,
+            name=creature.name,
+            ch=creature.ch,
+            fg=creature.fg,
+            hp=creature.hp,
+            attack=creature.attack,
+            defense=creature.defense,
+            xp=creature.xp,
+            spawn_weight=creature.spawn_weight,
+            passives=creature.passives,
+        )
 
 
 def init_items(world: tcod.ecs.Registry) -> None:
@@ -125,7 +123,7 @@ def init_items(world: tcod.ecs.Registry) -> None:
     confusion_scroll.components[PositionSpell] = Confusion(duration=10)
     # confusion_scroll.components[ApplyAction] = RandomTargetScroll(maximum_range=5)
     # confusion_scroll.components[EntitySpell] = Confusion(duration=10)
-    confusion_scroll.components[SpawnWeight] = ((1, 25),)
+    confusion_scroll.components[SpawnWeight] = ((2, 25),)
 
     lightning_scroll = world["lightning_scroll"]
     lightning_scroll.tags.add(IsItem)

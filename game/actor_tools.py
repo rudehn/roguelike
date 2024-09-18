@@ -10,9 +10,9 @@ import tcod.ecs
 import tcod.map
 
 from game.components import XP, Graphic, Level, MemoryTiles, Name, Position, Tiles, VisibleTiles
-from game.messages import add_message
+from game.ui.messages import add_message
 from game.tags import IsAlive, IsBlocking, IsGhost, IsIn, IsPlayer
-from game.tiles import TILES
+from game.world.tiles import TILES
 
 
 def get_player_actor(world: tcod.ecs.Registry) -> tcod.ecs.Entity:

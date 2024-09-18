@@ -17,18 +17,18 @@ from tcod.event import KeySym, Modifier, Scancode
 
 import g
 import game.color
-import game.world_init
+import game.world.world_init
 from game.action import Action  # noqa: TCH001
 from game.action_tools import do_player_action
 from game.actions import ApplyItem, Bump, DropItem, PickupItem, TakeStairs
 from game.actor_tools import get_player_actor, level_up, required_xp_for_level
-from game.components import HP, XP, DEX, Level, MaxHP, Position, STR
+from game.components import HP, XP, Defense, Level, MaxHP, Position, Attack
 from game.constants import CURSOR_Y_KEYS, DIRECTION_KEYS
 from game.combat import get_crit_chance, get_crit_damage_pct, get_defense, get_evade_chance, get_max_damage, get_min_damage
 from game.entity_tools import get_desc
 from game.item_tools import get_inventory_keys
-from game.messages import add_message, Message, MessageLog
-from game.rendering import main_render, render_messages
+from game.ui.messages import add_message, Message, MessageLog
+from game.ui.rendering import main_render, render_messages
 from game.state import State
 from game.tags import IsPlayer
 
@@ -191,7 +191,7 @@ class MainMenu:
                 if hasattr(g, "world"):
                     return InGame()
             case tcod.event.KeyDown(sym=KeySym.n):
-                g.world = game.world_init.new_world()
+                g.world = game.world.world_init.new_world()
                 return InGame()
 
         return self
@@ -266,12 +266,12 @@ class LevelUp:
         console.print(
             x=x + 1,
             y=y + 5,
-            string=f"b) Strength (+1 STR, from {player.components[STR]})",
+            string=f"b) Attack (+1 attack, from {player.components[Attack]})",
         )
         console.print(
             x=x + 1,
             y=y + 6,
-            string=f"c) Dexterity (+1 DEX, from {player.components[DEX]})",
+            string=f"c) Defense (+1 defense, from {player.components[Defense]})",
         )
 
     def on_event(self, event: tcod.event.Event) -> State:
@@ -286,12 +286,12 @@ class LevelUp:
                 add_message(g.world, "Your health improves!")
                 return InGame()
             case tcod.event.KeyDown(sym=KeySym.b):
-                player.components[STR] += 1
+                player.components[Attack] += 1
                 level_up(player)
                 add_message(g.world, "You feel stronger!")
                 return InGame()
             case tcod.event.KeyDown(sym=KeySym.c):
-                player.components[DEX] += 1
+                player.components[Defense] += 1
                 level_up(player)
                 add_message(g.world, "Your movements are getting swifter!")
                 return InGame()
@@ -323,7 +323,7 @@ class CharacterScreen:
             x=x,
             y=y,
             width=width,
-            height=12,
+            height=7,
             title=title,
             clear=True,
             fg=(255, 255, 255),
@@ -338,13 +338,13 @@ class CharacterScreen:
             string=f"XP for next Level: {required_xp_for_level(player) - player.components.get(XP, 0)}",
         )
 
-        console.print(x=x + 1, y=y + 4, string=f"STR: {player.components[STR]}")
-        console.print(x=x + 1, y=y + 5, string=f"DEX: {player.components[DEX]}")
-        console.print(x=x + 1, y=y + 6, string=f"Damage: {get_min_damage(player)} - {get_max_damage(player)}")
-        console.print(x=x + 1, y=y + 7, string=f"Block: {get_defense(player)}")
-        console.print(x=x + 1, y=y + 8, string=f"Crit Chance: {get_crit_chance(player):.0%}")
-        console.print(x=x + 1, y=y + 9, string=f"Crit Mult: {get_crit_damage_pct(player)}")
-        console.print(x=x + 1, y=y + 10, string=f"Evade Chance: {get_evade_chance(player):.0%}")
+        console.print(x=x + 1, y=y + 4, string=f"Attack: {player.components[Attack]}")
+        console.print(x=x + 1, y=y + 5, string=f"Defense: {player.components[Defense]}")
+        # console.print(x=x + 1, y=y + 6, string=f"Damage: {get_min_damage(player)} - {get_max_damage(player)}")
+        # console.print(x=x + 1, y=y + 7, string=f"Block: {get_defense(player)}")
+        # console.print(x=x + 1, y=y + 8, string=f"Crit Chance: {get_crit_chance(player):.0%}")
+        # console.print(x=x + 1, y=y + 9, string=f"Crit Mult: {get_crit_damage_pct(player)}")
+        # console.print(x=x + 1, y=y + 10, string=f"Evade Chance: {get_evade_chance(player):.0%}")
 
     def on_event(self, event: tcod.event.Event) -> State:
         """Exit state on any key."""

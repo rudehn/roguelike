@@ -7,7 +7,7 @@ from tcod.ecs import Entity  # noqa: TCH002
 
 from game.combat import heal
 from game.components import Name
-from game.messages import add_message
+from game.ui.messages import add_message
 
 
 @attrs.define

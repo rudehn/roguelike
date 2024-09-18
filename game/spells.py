@@ -13,9 +13,9 @@ from game.action import ActionResult, Success, Impossible
 from game.actions import ConfusedAI
 from game.combat import apply_damage
 from game.components import AI, HP, MapShape, MemoryTiles, Name, Position, Tiles, VisibleTiles
-from game.messages import add_message
+from game.ui.messages import add_message
 from game.tags import IsActor, IsIn
-from game.tiles import TILES
+from game.world.tiles import TILES
 
 
 @attrs.define

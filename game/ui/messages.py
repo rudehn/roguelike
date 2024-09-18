@@ -7,7 +7,7 @@ from typing import Final
 import attrs
 import tcod.ecs  # noqa: TCH002
 
-from . import color
+from .. import color
 
 
 @attrs.define

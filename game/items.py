@@ -14,7 +14,7 @@ from game.components import Position, VisibleTiles
 from game.effect import Effect
 from game.entity_tools import get_name
 from game.item_tools import consume_item
-from game.messages import add_message
+from game.ui.messages import add_message
 from game.spell import AreaOfEffect, EntitySpell, PositionSpell
 from game.tags import IsActor, IsIn
 

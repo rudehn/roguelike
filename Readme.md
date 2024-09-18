@@ -31,8 +31,8 @@ Creatures:
     - Graphic
     - HP
     - MaxHP
-    - STR
-    - DEX
+    - Attack
+    - Defense
     - RewardXP
     - Passives
         - Health / turn
