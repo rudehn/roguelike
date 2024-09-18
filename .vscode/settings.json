@@ -1,0 +1,47 @@
+{
+    "files.trimTrailingWhitespace": true,
+    "files.trimFinalNewlines": true,
+    "files.insertFinalNewline": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "always"
+    },
+    "editor.rulers": [
+        120
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    },
+    "files.associations": {
+        "*.spec": "python"
+    },
+    "python.analysis.typeCheckingMode": "standard",
+    "cSpell.words": [
+        "autoupdate",
+        "Benesch",
+        "BKGND",
+        "blit",
+        "bresenham",
+        "Chebyshev",
+        "cozette",
+        "dtype",
+        "imageio",
+        "imsave",
+        "isort",
+        "libtcodpy",
+        "mgrid",
+        "NONUSBACKSLASH",
+        "PAGEDOWN",
+        "PAGEUP",
+        "PRINTSCREEN",
+        "procgen",
+        "Roguelike",
+        "Roguelikedev",
+        "Scancode",
+        "SHADOWCAST",
+        "tcod",
+        "tileset",
+        "tilesheet",
+        "unequip"
+    ]
+}

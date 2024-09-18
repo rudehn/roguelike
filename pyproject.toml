@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "roguelike-ecs"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+tcod = "^16.2.3"
+tcod-ecs = "^5.2.3"
+numpy = "^2.1.1"
+tcod-camera = "^1.0.1"
+imageio = "^2.35.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
