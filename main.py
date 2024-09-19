@@ -91,7 +91,6 @@ TODO
 - should passives run on some impossible actions?
 - Figure out tags for downstairs & upstairs & how we travel between levels
 - Show a stat screen for enemies?
-- Rename title + author
 
 - Enemy spawner - with spawned monsters having AI to wander the map
 - More equipment slots
@@ -99,7 +98,6 @@ TODO
 - Add events: on turn start/end
 - Add a skill system?
 - Don't like the melee combat system returning a class
-- Make enemies able to move more than 1 tile at a time
 
 - Passive ideas
 - retaliate
@@ -113,8 +111,15 @@ Damage - D4 + 3
 Implement camera system
 Make dungeons small at low levels but grow larger w/ more/bigger rooms
 
-Implement speed system
-- Loop through entity list, all actors with an AI
-- Player's AI is user input
-- TODO - how to handle rendering?
+Update ActionResult to return an alternative action with it's own cost
+Make armor/items affect speed
+make different types of units have different walk speeds, but consistent attack speeds
+
+More actions that should have costs:
+- dropping an item
+- equip/unequip
+TODO - if a player tries to do two actions with a 50 weight, they will only do 1 per turn
+- Need to set the desired action, then attempt it next turn
+- If a player attempts to perform an action with a cost greater than their energy,
+the user has to double click to perform the action
 """

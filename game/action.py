@@ -34,9 +34,14 @@ class Impossible:
 
 ActionResult: TypeAlias = Success | Poll | Impossible  # noqa: UP040
 
+# @attrs.define
+# class ActionResultt:
+#     status: TypeAlias = Success | Poll | Impossible
+    # alternate: Action
 
 class Action(Protocol):
     """Action protocol."""
+    cost: int
 
     def __call__(self, actor: Entity, /) -> ActionResult:
         """Perform action."""

@@ -69,6 +69,12 @@ MemoryTiles: Final = ("MemoryTiles", NDArray[np.int8])
 Name: Final = ("Name", str)
 """Name of an entity."""
 
+Energy: Final = ("Energy", int)
+"""How much energy entities have to perform actions"""
+
+Speed: Final = ("Speed", int)
+"""How quickly entities regain energy"""
+
 HP: Final = ("HP", int)
 """Current hit points."""
 

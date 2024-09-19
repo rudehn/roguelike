@@ -9,13 +9,24 @@ import tcod.ecs  # noqa: TCH002
 import game.states
 from game.action import Action, Impossible, Poll, Success
 from game.actor_tools import can_level_up, update_fov
-from game.components import AI, HP
+from game.components import AI, Energy, HP, Speed
 from game.ui.messages import add_message
 from game.state import State  # noqa: TCH001
 from game.tags import IsIn, IsPlayer
 
 logger = logging.getLogger(__name__)
 
+def get_entity_energy(entity: tcod.ecs.Entity) -> int:
+    """Return the entity's energy"""
+    return entity.components.get(Energy, 0)
+
+def update_entity_energy(entity: tcod.ecs.Entity, amount: int):
+    """Update the entity's energy by the specified amount"""
+    entity.components.setdefault(Energy, 0)
+    entity.components[Energy] += amount
+
+def get_entity_speed(entity: tcod.ecs.Entity):
+    return entity.components.get(Speed, 0)
 
 def do_player_action(player: tcod.ecs.Entity, action: Action) -> State:
     """Perform an action on the player."""

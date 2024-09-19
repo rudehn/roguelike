@@ -18,11 +18,11 @@ from tcod.event import KeySym, Modifier, Scancode
 import g
 import game.color
 import game.world.world_init
-from game.action import Action  # noqa: TCH001
-from game.action_tools import do_player_action
+from game.action import Action, Impossible, Poll, Success  # noqa: TCH001
+from game.action_tools import do_player_action, get_entity_energy, get_entity_speed, update_entity_energy
 from game.actions import ApplyItem, Bump, DropItem, PickupItem, TakeStairs
-from game.actor_tools import get_player_actor, level_up, required_xp_for_level
-from game.components import HP, XP, Defense, Level, MaxHP, Position, Attack
+from game.actor_tools import can_level_up, get_player_actor, level_up, required_xp_for_level, update_fov
+from game.components import AI, HP, XP, Defense, Level, MaxHP, Position, Attack
 from game.constants import CURSOR_Y_KEYS, DIRECTION_KEYS
 from game.combat import get_crit_chance, get_crit_damage_pct, get_defense, get_evade_chance, get_max_damage, get_min_damage
 from game.entity_tools import get_desc
@@ -30,7 +30,7 @@ from game.item_tools import get_inventory_keys
 from game.ui.messages import add_message, Message, MessageLog
 from game.ui.rendering import main_render, render_messages
 from game.state import State
-from game.tags import IsPlayer
+from game.tags import IsPlayer, IsIn
 
 
 @attrs.define
@@ -38,9 +38,18 @@ class InGame(State):
     """In-game main player control state."""
 
     def on_event(self, event: tcod.event.Event) -> State:  # noqa: C901, PLR0911
-        """Handle basic events and movement."""
+        """
+        Handle basic events and movement.
+
+        Actors move with a 'speed' system. If actors have enough energy to perform their desired
+        action, they will do so, deplete their energy by the cost of the action, and replenish their
+        energy by their 'speed' component.
+
+        We always process the player first, so that coming back to the InGame state from another state
+        doesn't give an enemy a free turn.
+        """
         player = get_player_actor(g.world)
-        print("Handling event", event)
+        # First handle if we have any state changes
         match event:
             case tcod.event.KeyDown(sym=KeySym.ESCAPE):
                 return MainMenu()
@@ -49,24 +58,63 @@ class InGame(State):
             case tcod.event.KeyDown(sym=KeySym.v):
                 messages: Reversible[Message] = g.world[None].components[MessageLog]
                 return MessageHistoryScreen(log_length=len(messages), cursor=len(messages) - 1)
-            case tcod.event.KeyDown(sym=KeySym.g):
-                return do_player_action(player, PickupItem())
             case tcod.event.KeyDown(sym=KeySym.i):
                 return ItemSelect.player_verb(player, "use", ApplyItem)
             case tcod.event.KeyDown(sym=KeySym.d):
                 return ItemSelect.player_verb(player, "drop", DropItem)
             case tcod.event.KeyDown(sym=KeySym.SLASH):
                 return PositionSelect.init_look()
+
+        # Can't handle actions on player death
+        if player.components[HP] <= 0:
+            return self
+
+        match event:
+            case tcod.event.KeyDown(sym=KeySym.g):
+                player_action = PickupItem()
             case tcod.event.KeyDown(sym=KeySym.PERIOD, mod=mod) if mod & Modifier.SHIFT:
-                return do_player_action(player, TakeStairs("down"))
+                player_action = TakeStairs("down")
             case tcod.event.KeyDown(sym=KeySym.COMMA, mod=mod) if mod & Modifier.SHIFT:
-                return do_player_action(player, TakeStairs("up"))
+                player_action = TakeStairs("up")
             case tcod.event.KeyDown(scancode=Scancode.NONUSBACKSLASH, mod=mod) if mod & Modifier.SHIFT:
-                return do_player_action(player, TakeStairs("down"))
+                player_action = TakeStairs("down")
             case tcod.event.KeyDown(scancode=Scancode.NONUSBACKSLASH, mod=mod) if not mod & Modifier.SHIFT:
-                return do_player_action(player, TakeStairs("up"))
+                player_action = TakeStairs("up")
             case tcod.event.KeyDown(sym=sym) if sym in DIRECTION_KEYS:
-                return do_player_action(player, Bump(DIRECTION_KEYS[sym]))
+                player_action = Bump(DIRECTION_KEYS[sym])
+            case _:
+                return self  # Didn't get any expected input
+
+        entities = player.registry.Q.all_of(components=[AI], relations=[(IsIn, player.relation_tag[IsIn])]).get_entities()
+        entities = set(entities)
+        entities.update({player})
+        # Update all the enemies in the same map as the player
+        for entity in entities:
+            # Check if it's the player
+            if IsPlayer in entity.tags:
+                action = player_action
+            else:
+                action = entity.components[AI]
+            available_energy = get_entity_energy(entity)
+
+            # Entity has enough energy to perform this action
+            while available_energy >= action.cost:
+                result = action(entity)
+                update_fov(player) # Update the FOV after every action so we can see fast enemies move before attacking
+                match result:
+                    case Success(message=message):
+                        # For now, take energy away for impossible actions
+                        update_entity_energy(entity, -action.cost)
+                        available_energy -= action.cost
+                    case Impossible(reason=reason):
+                        update_entity_energy(entity, -action.cost)
+                        available_energy -= action.cost
+            update_entity_energy(entity, get_entity_speed(entity))
+
+        if can_level_up(player):
+            return LevelUp()
+
+        # Stay in the game
         return self
 
     def on_draw(self, console: tcod.console.Console) -> None:

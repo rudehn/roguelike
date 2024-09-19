@@ -33,6 +33,7 @@ Creatures:
     - MaxHP
     - Attack
     - Defense
+    - Speed - how quickly the creature regenerates action points
     - RewardXP
     - Passives
         - Health / turn

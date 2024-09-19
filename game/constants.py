@@ -6,6 +6,8 @@ from typing import Final
 
 from tcod.event import KeySym
 
+DEFAULT_ACTION_COST = 100
+
 CURSOR_Y_KEYS: Final = {
     KeySym.UP: -1,
     KeySym.DOWN: 1,

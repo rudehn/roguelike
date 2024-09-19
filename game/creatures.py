@@ -16,12 +16,14 @@ class Creature:
     hp: int
     attack: int
     defense: int
+    speed: int
     xp: int
     spawn_weight: Tuple[Tuple[int, int], ...] = attrs.field(kw_only=True, default=None)
     passives: Tuple[Effect] = attrs.field(kw_only=True, default=None)
 
 Creatures: Final = (
-    Creature("player", ord("@"), (255, 255, 255), 30, 5, 1, 0),
-    Creature("orc", ord("o"), (63, 127, 63), 10, 3, 0, 35, spawn_weight=((1, 80),)),
-    Creature("troll", ord("T"), (0, 127, 0), 16, 5, 1, 100, spawn_weight=((3, 15), (5, 30), (7, 60)), passives=(Healing(1),))
+    Creature("player", ord("@"), (255, 255, 255), 30, 5, 0, 100, 0),
+    Creature("orc", ord("o"), (63, 127, 63), 10, 3, 0, 50, 35, spawn_weight=((1, 80),)),
+    Creature("snake", ord("s"), (63, 127, 63), 10, 3, 0, 200, 35, spawn_weight=((1, 80),)),
+    Creature("troll", ord("T"), (0, 127, 0), 16, 5, 1, 100, 100, spawn_weight=((3, 15), (5, 30), (7, 60)), passives=(Healing(1),))
 )

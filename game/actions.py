@@ -12,6 +12,7 @@ from game.action import Action, ActionResult, Impossible, Success
 from game.actor_tools import update_fov
 from game.combat import apply_damage, CombatActionTypes, melee_damage
 from game.components import AI, EquipSlot, MapShape, Name, Passives, Position, Tiles, VisibleTiles
+from game.constants import DEFAULT_ACTION_COST
 from game.entity_tools import get_name
 from game.item import ApplyAction
 from game.item_tools import add_to_inventory, equip_item, unequip_item
@@ -22,11 +23,10 @@ from game.tags import EquippedBy, IsAlive, IsBlocking, IsIn, IsItem, IsPlayer
 from game.world.tiles import TILES
 from game.travel import path_to
 
-
 @attrs.define
 class Move:
     """Move an entity in a direction."""
-
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
     direction: tuple[int, int]
 
     def __call__(self, entity: tcod.ecs.Entity) -> ActionResult:
@@ -53,6 +53,7 @@ class Melee:
     """Attack an entity in a direction."""
 
     direction: tuple[int, int]
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
 
     def __call__(self, entity: tcod.ecs.Entity) -> ActionResult:
         """Check and apply the movement."""
@@ -86,6 +87,7 @@ class Bump:
     """Context sensitive action in a direction."""
 
     direction: tuple[int, int]
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
 
     def __call__(self, entity: tcod.ecs.Entity) -> ActionResult:
         """Check and apply the movement."""
@@ -149,6 +151,7 @@ class HostileAI(BaseAI):
     """Generic hostile AI."""
 
     path: FollowPath = attrs.field(factory=FollowPath)
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
 
     def perform_action(self, actor: tcod.ecs.Entity) -> ActionResult:
         """Follow and attack player."""
@@ -171,6 +174,7 @@ class HostileAI(BaseAI):
 class ConfusedAI(BaseAI):
     turns_remaining: int
     previous_ai: Action
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
 
     def perform_action(self, actor: tcod.ecs.Entity) -> ActionResult:
          # Revert the AI back to the original state if the effect has run its course
@@ -202,6 +206,8 @@ class ConfusedAI(BaseAI):
 class PickupItem:
     """Pickup an item and add it to the inventory, if there is room for it."""
 
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
+
     def __call__(self, actor: tcod.ecs.Entity) -> ActionResult:
         """Check for and pickup item."""
         items_here = actor.registry.Q.all_of(tags=[IsItem, actor.components[Position]]).get_entities()
@@ -217,6 +223,7 @@ class ApplyItem:
     """Use an item directly."""
 
     item: tcod.ecs.Entity
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
 
     def __call__(self, actor: tcod.ecs.Entity) -> ActionResult:
         """Defer to items apply behavior."""
@@ -238,6 +245,7 @@ class DropItem:
     """Place an item on the floor."""
 
     item: tcod.ecs.Entity
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
 
     def __call__(self, actor: tcod.ecs.Entity) -> ActionResult:
         """Drop item from inventory."""
@@ -255,6 +263,7 @@ class TakeStairs:
     """Traverse stairs action."""
 
     dir: Literal["down", "up"]
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
 
     def __call__(self, actor: tcod.ecs.Entity) -> ActionResult:
         """Find and traverse stairs for this actor."""
@@ -283,6 +292,7 @@ class MoveLevel:
     dest_map: MapKey
     exit_tag: tuple[object, ...] = ()
     message: str = ""
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
 
     def __call__(self, actor: tcod.ecs.Entity) -> ActionResult:
         """Move actor to the exit passage of the destination map."""

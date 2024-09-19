@@ -13,6 +13,7 @@ from game.components import (
     Defense,
     DefenseBonus,
     EquipSlot,
+    Energy,
     Graphic,
     HPBonus,
     MaxHP,
@@ -20,6 +21,7 @@ from game.components import (
     Passives,
     Position,
     PowerBonus,
+    Speed,
     RewardXP,
     SpawnWeight,
     Attack,
@@ -69,7 +71,9 @@ def init_new_creature(
     hp: int,
     attack: int,
     defense: int,
+    speed: int,
     xp: int,
+    energy: int = 100,
     passives: tuple[Effect, ...] | None = None,
     spawn_weight: tuple[tuple[int, int], ...] | None = None,
 ) -> None:
@@ -78,6 +82,8 @@ def init_new_creature(
     race.tags.add(IsActor)
     race.components[Name] = name
     race.components[Graphic] = Graphic(ch, fg)
+    race.components[Energy] = energy
+    race.components[Speed] = speed
     race.components[HP] = race.components[MaxHP] = hp
     race.components[Attack] = attack
     race.components[Defense] = defense
@@ -99,6 +105,7 @@ def init_creatures(world: tcod.ecs.Registry) -> None:
             hp=creature.hp,
             attack=creature.attack,
             defense=creature.defense,
+            speed=creature.speed,
             xp=creature.xp,
             spawn_weight=creature.spawn_weight,
             passives=creature.passives,
