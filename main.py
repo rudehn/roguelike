@@ -122,4 +122,16 @@ TODO - if a player tries to do two actions with a 50 weight, they will only do 1
 - Need to set the desired action, then attempt it next turn
 - If a player attempts to perform an action with a cost greater than their energy,
 the user has to double click to perform the action
+
+https://github.com/jossse69/Python-RL/blob/main/components/equippable.py
+Apply status effects to ground. Poison/confusion/burn
+- Apply status effect to weapon, attacking generates poison, bleeding, etc
+- Add immunities
+https://github.com/jossse69/Python-RL/blob/main/entity_factories.py
+- How do we remove status effects from entities?
+https://github.com/jossse69/Python-RL/blob/main/components/ai.py#L130
+https://github.com/bkeil/CompleteRoguelikeTutorial/blob/master/entity_types.py#L118
+
+Confusion AI shouldn't assume the entity can move; sometimes it should just make the entity take the wait action
+AIs shouldn't have a cost; their actions should have a cost
 """

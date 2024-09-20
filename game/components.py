@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Final, NamedTuple, NewType, Self
+from typing import Any, Dict, Final, NamedTuple, NewType, Self
 
 import attrs
 import numpy as np
@@ -13,6 +13,15 @@ from numpy.typing import NDArray
 from game.action import Action
 from game.effect import Effect
 from game.tags import IsIn
+
+@attrs.define
+class AIBuilder:
+    """Create an Action (AI) instance from an action class + parameters"""
+    ai: type[Action]
+    kwargs: Dict[str, Any] | None = None
+
+    def build(self):
+        return self.ai(**self.kwargs) if self.kwargs else self.ai()
 
 
 @attrs.define(frozen=True)

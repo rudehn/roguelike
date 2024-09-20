@@ -224,5 +224,16 @@ def heal(entity: tcod.ecs.Entity, amount: int) -> int:
         return 0
     old_hp = entity.components[HP]
     new_hp = min(old_hp + amount, entity.components[MaxHP])
-    entity.components[HP] = min(entity.components[HP] + amount, entity.components[MaxHP])
+    entity.components[HP] = new_hp
     return new_hp - old_hp
+
+
+def poison(entity: tcod.ecs.Entity, amount: int) -> int:
+    """Poison the HP of `entity` by `amount`. Return the actual amount poisoned."""
+    if not (entity.components.keys() >= {HP, MaxHP}):
+        logger.info("%r has no HP/MaxHP component", entity)
+        return 0
+    old_hp = entity.components[HP]
+    new_hp = max(old_hp - amount, 0)
+    entity.components[HP] = new_hp
+    return old_hp - new_hp

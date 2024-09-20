@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from random import Random
+from typing import Callable
 
 import tcod.ecs
 
 import game.actor_tools
 import game.world.procgen
+from game.actions import Action
 from game.components import (
+    AI,
+    AIBuilder,
     HP,
     Defense,
     DefenseBonus,
@@ -73,11 +77,16 @@ def init_new_creature(
     defense: int,
     speed: int,
     xp: int,
+    ai: AIBuilder | None,
     energy: int = 100,
     passives: tuple[Effect, ...] | None = None,
     spawn_weight: tuple[tuple[int, int], ...] | None = None,
 ) -> None:
-    """Setup a new creature type."""
+    """
+    Setup a new creature type.
+
+    Can't init AI here, otherwise instantiated instances cant set the AI to
+    """
     race = world[name]
     race.tags.add(IsActor)
     race.components[Name] = name
@@ -88,11 +97,12 @@ def init_new_creature(
     race.components[Attack] = attack
     race.components[Defense] = defense
     race.components[RewardXP] = xp
+    if ai:
+        race.components[AIBuilder] = ai
     if passives:
         race.components[Passives] = passives
     if spawn_weight:
         race.components[SpawnWeight] = spawn_weight
-
 
 def init_creatures(world: tcod.ecs.Registry) -> None:
     """Initialize monster database."""
@@ -107,6 +117,7 @@ def init_creatures(world: tcod.ecs.Registry) -> None:
             defense=creature.defense,
             speed=creature.speed,
             xp=creature.xp,
+            ai=creature.ai,
             spawn_weight=creature.spawn_weight,
             passives=creature.passives,
         )

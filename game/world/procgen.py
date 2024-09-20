@@ -15,7 +15,6 @@ import tcod.los
 from numpy.typing import NDArray  # noqa: TCH002
 
 import game.world.map_tools
-from game.actions import HostileAI
 from game.actor_tools import spawn_actor
 from game.components import AI, Floor, Graphic, Position, SpawnWeight, Tiles
 from game.item_tools import spawn_item
@@ -244,7 +243,7 @@ def generate_dungeon(  # noqa: C901
             strict=False,
         ):
             new_monster = spawn_actor(monster_kind, pos)
-            new_monster.components[AI] = HostileAI()
+            # new_monster.components[AI] = ai
 
         for item_kind, pos in zip(
             rng.choices(**item_weights, k=rng.randint(0, max_items_per_room)),

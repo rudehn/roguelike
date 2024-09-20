@@ -33,6 +33,21 @@ from game.state import State
 from game.tags import IsPlayer, IsIn
 
 
+def process_entity_turn(entity: tcod.ecs.Entity, action: Action):
+    available_energy = get_entity_energy(entity)
+    # Entity has enough energy to perform this action
+    while available_energy >= action.cost:
+        result = action(entity)
+        match result:
+            case Success(message=message):
+                # For now, take energy away for impossible actions
+                update_entity_energy(entity, -action.cost)
+                available_energy -= action.cost
+            case Impossible(reason=reason):
+                update_entity_energy(entity, -action.cost)
+                available_energy -= action.cost
+    update_entity_energy(entity, get_entity_speed(entity))
+
 @attrs.define
 class InGame(State):
     """In-game main player control state."""
@@ -85,32 +100,14 @@ class InGame(State):
             case _:
                 return self  # Didn't get any expected input
 
-        entities = player.registry.Q.all_of(components=[AI], relations=[(IsIn, player.relation_tag[IsIn])]).get_entities()
-        entities = set(entities)
-        entities.update({player})
+        process_entity_turn(player, player_action)
+
         # Update all the enemies in the same map as the player
-        for entity in entities:
-            # Check if it's the player
-            if IsPlayer in entity.tags:
-                action = player_action
-            else:
-                action = entity.components[AI]
-            available_energy = get_entity_energy(entity)
+        for entity in player.registry.Q.all_of(components=[AI], relations=[(IsIn, player.relation_tag[IsIn])]):
+            action = entity.components[AI]
+            process_entity_turn(entity, action)
 
-            # Entity has enough energy to perform this action
-            while available_energy >= action.cost:
-                result = action(entity)
-                update_fov(player) # Update the FOV after every action so we can see fast enemies move before attacking
-                match result:
-                    case Success(message=message):
-                        # For now, take energy away for impossible actions
-                        update_entity_energy(entity, -action.cost)
-                        available_energy -= action.cost
-                    case Impossible(reason=reason):
-                        update_entity_energy(entity, -action.cost)
-                        available_energy -= action.cost
-            update_entity_energy(entity, get_entity_speed(entity))
-
+        update_fov(player) # Update the FOV after every action so we can see fast enemies move before attacking
         if can_level_up(player):
             return LevelUp()
 

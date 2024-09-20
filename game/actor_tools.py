@@ -9,7 +9,7 @@ import tcod.constants
 import tcod.ecs
 import tcod.map
 
-from game.components import XP, Graphic, Level, MemoryTiles, Name, Position, Tiles, VisibleTiles
+from game.components import AI, AIBuilder, XP, Graphic, Level, MemoryTiles, Name, Position, Tiles, VisibleTiles
 from game.ui.messages import add_message
 from game.tags import IsAlive, IsBlocking, IsGhost, IsIn, IsPlayer
 from game.world.tiles import TILES
@@ -66,6 +66,10 @@ def spawn_actor(template: tcod.ecs.Entity, position: Position) -> tcod.ecs.Entit
     actor.components[Position] = position
     actor.tags.add(IsBlocking)
     actor.tags.add(IsAlive)
+
+    ai_builder = actor.components.get(AIBuilder)
+    if ai_builder:
+        actor.components[AI] = ai_builder.build()
     return actor
 
 
