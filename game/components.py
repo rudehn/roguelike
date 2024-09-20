@@ -23,7 +23,6 @@ class AIBuilder:
     def build(self):
         return self.ai(**self.kwargs) if self.kwargs else self.ai()
 
-
 @attrs.define(frozen=True)
 class Position:
     """Entity position."""
@@ -120,8 +119,8 @@ RewardXP: Final = ("RewardXP", int)
 SpawnWeight: Final = ("SpawnWeight", tuple[tuple[int, int], ...])
 """Spawn rate as `((floor, weight), ...)`."""
 
-Passives: Final = ("Passives", tuple[Effect, ...])
-"""Passive effects the entity will apply each turn"""
+EffectsApplied: Final = ("EffectsApplied", tuple[tcod.ecs.Entity, ...])
+"""Effects the entity will apply each turn to the target"""
 
 # EquipSlotType = NewType('EquipSlotType', tuple[object])
 EquipSlot: Final = ("EquipSlot", int)

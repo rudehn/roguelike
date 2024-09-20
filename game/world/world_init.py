@@ -3,26 +3,24 @@
 from __future__ import annotations
 
 from random import Random
-from typing import Callable
+from typing import List
 
 import tcod.ecs
 
 import game.actor_tools
 import game.world.procgen
-from game.actions import Action
 from game.components import (
-    AI,
     AIBuilder,
     HP,
     Defense,
     DefenseBonus,
+    EffectsApplied,
     EquipSlot,
     Energy,
     Graphic,
     HPBonus,
     MaxHP,
     Name,
-    Passives,
     Position,
     PowerBonus,
     Speed,
@@ -31,8 +29,8 @@ from game.components import (
     Attack,
 )
 from game.creatures import Creatures
-from game.effect import Effect
-from game.effects import Healing
+from game.effect import add_effect_to_entity, Effect
+from game.effects import Healing, Poisoned, Regeneration
 from game.item import ApplyAction
 from game.item_tools import equip_item
 from game.items import Potion, RandomTargetScroll, TargetScroll
@@ -40,7 +38,7 @@ from game.world.map_tools import get_map
 from game.ui.messages import MessageLog, add_message
 from game.spell import EntitySpell, PositionSpell
 from game.spells import Confusion, Fireball, LightningBolt
-from game.tags import IsActor, IsIn, IsItem, IsPlayer
+from game.tags import IsActor, IsEffect, IsIn, IsItem, IsPlayer
 
 
 def new_world() -> tcod.ecs.Registry:
@@ -49,6 +47,7 @@ def new_world() -> tcod.ecs.Registry:
     world[None].components[Random] = Random()
     world[None].components[MessageLog] = MessageLog()
 
+    init_effects(world)
     init_creatures(world)
     init_items(world)
 
@@ -67,6 +66,37 @@ def new_world() -> tcod.ecs.Registry:
     return world
 
 
+def init_new_equippable(
+    world: tcod.ecs.Registry,
+    name: str,
+    ch: int,
+    fg: tuple[int, int, int],
+    equip_slot: str,
+    power_bonus: int | None = None,
+    defense_bonus: int | None = None,
+    hp_bonus: int | None = None,
+    effects_applied: tuple[str] | None = None,
+    spawn_weight: tuple[tuple[int, int], ...] | None = None,
+):
+    equippable = world[name]
+    equippable.tags.add(IsItem)
+    equippable.components[Name] = name.replace("_", " ").capitalize()
+    equippable.components[Graphic] = Graphic(ch, fg)
+    equippable.components[EquipSlot] = equip_slot
+    if power_bonus:
+        equippable.components[PowerBonus] = power_bonus
+    if defense_bonus:
+        equippable.components[DefenseBonus] = defense_bonus
+    if hp_bonus:
+        equippable.components[HPBonus] = hp_bonus
+    if effects_applied:
+        # TODO - verify all specified are effects
+        equippable.components[EffectsApplied] = tuple(map(lambda e: world[e], [e for e in effects_applied]))
+
+    if spawn_weight:
+        equippable.components[SpawnWeight] = spawn_weight
+
+
 def init_new_creature(
     world: tcod.ecs.Registry,
     name: str,
@@ -79,7 +109,7 @@ def init_new_creature(
     xp: int,
     ai: AIBuilder | None,
     energy: int = 100,
-    passives: tuple[Effect, ...] | None = None,
+    passives: tuple[str, ...] | None = None,
     spawn_weight: tuple[tuple[int, int], ...] | None = None,
 ) -> None:
     """
@@ -89,7 +119,7 @@ def init_new_creature(
     """
     race = world[name]
     race.tags.add(IsActor)
-    race.components[Name] = name
+    race.components[Name] = name.replace("_", " ")
     race.components[Graphic] = Graphic(ch, fg)
     race.components[Energy] = energy
     race.components[Speed] = speed
@@ -100,9 +130,38 @@ def init_new_creature(
     if ai:
         race.components[AIBuilder] = ai
     if passives:
-        race.components[Passives] = passives
+        # TODO - should we just be saving the effect strings & applying the Effect objects on instantiation?
+        effects = map(lambda e: world[e], passives)
+        for effect in effects:
+            add_effect_to_entity(race, effect)
     if spawn_weight:
         race.components[SpawnWeight] = spawn_weight
+
+
+def init_new_effect(
+    world: tcod.ecs.Registry,
+    name: str,
+    effect_type: Effect,
+):
+    effect = world[name]
+    effect.tags.add(IsEffect)
+    effect.components[Name] = name
+    effect.components[Effect] = effect_type
+
+
+def init_effects(world: tcod.ecs.Registry):
+    """Initialize the effects database"""
+    effects = [
+        ("lesser_healing", Healing(4)),
+        ("healing", Healing(10)),
+        ("greater_healing", Healing(20)),
+        ("lesser_regeneration", Regeneration(1)),
+        ("lesser_poison", Poisoned(amount=1, duration=4)),
+        ("poison", Poisoned(amount=2, duration=5)),
+        ("greater_poison", Poisoned(amount=3, duration=6)),
+    ]
+    for effect in effects:
+        init_new_effect(world, effect[0], effect[1])
 
 def init_creatures(world: tcod.ecs.Registry) -> None:
     """Initialize monster database."""
@@ -159,33 +218,54 @@ def init_items(world: tcod.ecs.Registry) -> None:
     fireball_scroll.components[PositionSpell] = Fireball(damage=12, radius=3)
     fireball_scroll.components[SpawnWeight] = ((6, 25),)
 
-    dagger = world["dagger"]
-    dagger.tags.add(IsItem)
-    dagger.components[Name] = "Dagger"
-    dagger.components[Graphic] = Graphic(ord("/"), (0, 191, 255))
-    dagger.components[PowerBonus] = 2
-    dagger.components[HPBonus] = 20
-    dagger.components[EquipSlot] = "weapon"
+    equippables = (
+        ("dagger", ord("/"), (0, 191, 255), "weapon", )
+    )
 
-    sword = world["sword"]
-    sword.tags.add(IsItem)
-    sword.components[Name] = "Sword"
-    sword.components[Graphic] = Graphic(ord("/"), (0, 191, 255))
-    sword.components[PowerBonus] = 4
-    sword.components[SpawnWeight] = ((4, 5),)
-    sword.components[EquipSlot] = "weapon"
+    init_new_equippable(
+        world=world,
+        name="dagger",
+        ch=ord("/"),
+        fg=(0, 191, 255),
+        equip_slot="weapon",
+        power_bonus=2,
+        hp_bonus=20,
+        effects_applied=("lesser_poison",)
+    )
+    init_new_equippable(
+        world=world,
+        name="sword",
+        ch=ord("/"),
+        fg=(0, 191, 255),
+        equip_slot="weapon",
+        power_bonus=4,
+        spawn_weight=((4, 5),)
+    )
+    init_new_equippable(
+        world=world,
+        name="sword",
+        ch=ord("/"),
+        fg=(0, 191, 255),
+        equip_slot="weapon",
+        power_bonus=4,
+        hp_bonus=20,
+        spawn_weight=((4, 5),)
+    )
 
-    leather_armor = world["leather_armor"]
-    leather_armor.tags.add(IsItem)
-    leather_armor.components[Name] = "Leather Armor"
-    leather_armor.components[Graphic] = Graphic(ord("["), (139, 69, 19))
-    leather_armor.components[DefenseBonus] = 1
-    leather_armor.components[EquipSlot] = "armor"
-
-    chain_mail = world["chain_mail"]
-    chain_mail.tags.add(IsItem)
-    chain_mail.components[Name] = "Chain Mail"
-    chain_mail.components[Graphic] = Graphic(ord("["), (139, 69, 19))
-    chain_mail.components[DefenseBonus] = 3
-    chain_mail.components[SpawnWeight] = ((6, 15),)
-    chain_mail.components[EquipSlot] = "armor"
+    init_new_equippable(
+        world=world,
+        name="leather_armor",
+        ch=ord("["),
+        fg=(139, 69, 19),
+        equip_slot="armor",
+        defense_bonus=1,
+    )
+    init_new_equippable(
+        world=world,
+        name="chain_mail",
+        ch=ord("["),
+        fg=(139, 69, 19),
+        equip_slot="armor",
+        defense_bonus=3,
+        spawn_weight=((6, 15),)
+    )

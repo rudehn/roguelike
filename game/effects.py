@@ -12,16 +12,24 @@ from game.ui.messages import add_message
 
 @attrs.define
 class Healing:
-    """Healing effect."""
+    """Healing effect that lasts 1 turn."""
 
     amount: int
 
-    def affect(self, entity: Entity) -> None:
+    def affect(self, entity: Entity) -> bool:
         """Heal the target."""
         if amount := heal(entity, self.amount):
             add_message(
                 entity.registry, f"""{entity.components.get(Name, "?")} recovers {amount} HP.""", fg="health_recovered"
             )
+        return True
+
+class Regeneration(Healing):
+    """Healing effect that lasts forever."""
+
+    def affect(self, entity: Entity) -> bool:
+        super().affect(entity)
+        return False
 
 @attrs.define
 class Poisoned:
@@ -37,4 +45,4 @@ class Poisoned:
                     entity.registry, f"""{entity.components.get(Name, "?")} took {amount} poison damage.""", fg="status_effect_applied"
                 )
             self.duration -= 1
-            # TODO - how do we remove the poison effect?
+        return self.duration <= 0

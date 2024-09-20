@@ -16,6 +16,9 @@ IsActor: Final = "IsActor"
 IsItem: Final = "IsItem"
 """Item category."""
 
+IsEffect: Final = "IsEffect"
+"""Effect category."""
+
 IsBlocking: Final = "IsBlocking"
 """Entity blocks basic movement."""
 

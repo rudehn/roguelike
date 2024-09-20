@@ -92,7 +92,6 @@ TODO
 - Figure out tags for downstairs & upstairs & how we travel between levels
 - Show a stat screen for enemies?
 
-- Enemy spawner - with spawned monsters having AI to wander the map
 - More equipment slots
 - Add weapon stats that multiply power
 - Add events: on turn start/end
@@ -134,4 +133,18 @@ https://github.com/bkeil/CompleteRoguelikeTutorial/blob/master/entity_types.py#L
 
 Confusion AI shouldn't assume the entity can move; sometimes it should just make the entity take the wait action
 AIs shouldn't have a cost; their actions should have a cost
+
+To apply effects to a target, I think I need to fetch all Effects for equipables effecting myself (somehow get the armor in there)
+and then I need to "build" the effect & attach it to the target entity. When It's attached, we check if the target
+is immune to the effect. Then on the entities turn, we iterate all effects applied to it and apply them
+We also need to add a mechanism to update the duration, or stack effects, so we likely need a function to
+join together by effect type to sum & report
+
+TODO - split up EffectsApplied into target/defender effects applied
+TODO - attacking should only grab the effect from the weapon used
+Add effect strings when the effect is initiated
+implement effects monsters can apply to player
+TODO - effect instance is shared amongst all entities
+# TODO - how to prevent mutating global effect state on an entity? Use Position.replace style?
+# TODO - Make AI class frozen?
 """

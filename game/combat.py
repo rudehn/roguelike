@@ -15,6 +15,7 @@ from game.components import (
     XP,
     Defense,
     DefenseBonus,
+    EffectsApplied,
     Graphic,
     HPBonus,
     MaxHP,
@@ -23,8 +24,9 @@ from game.components import (
     RewardXP,
     Attack,
 )
+from game.effect import add_effect_to_entity
 from game.ui.messages import add_message
-from game.tags import Affecting, IsAlive, IsBlocking, IsPlayer
+from game.tags import Affecting, EquippedBy, IsAlive, IsBlocking, IsPlayer
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +188,14 @@ def melee_damage(attacker: tcod.ecs.Entity, target: tcod.ecs.Entity) -> CombatAc
     damage = max(0, attack - defense)
     if damage == 0:
         action_type = CombatActionTypes.BLOCKED
+    else:
+        # This grabs all of the attacker's equipment that apply effects
+        for effect in attacker.registry.Q.all_of(components=[EffectsApplied], relations=[(EquippedBy, attacker)]):
+            equip_effects = effect.components[EffectsApplied]
+            print("all effects", equip_effects)
+            for equip_effect in equip_effects:
+                print("an effect", equip_effect)
+                add_effect_to_entity(target, equip_effect)
     return CombatAction(damage=damage, action_type=action_type)
 
 def apply_damage(entity: tcod.ecs.Entity, damage: int, blame: tcod.ecs.Entity) -> None:

@@ -11,15 +11,16 @@ import tcod.ecs  # noqa: TCH002
 from game.action import Action, ActionResult, Impossible, Success
 from game.actor_tools import spawn_actor, update_fov
 from game.combat import apply_damage, CombatActionTypes, melee_damage
-from game.components import AI, EquipSlot, MapShape, Name, Passives, Position, Tiles, VisibleTiles
+from game.components import AI, Effect, EffectsApplied, EquipSlot, MapShape, Name, Position, Tiles, VisibleTiles
 from game.constants import DEFAULT_ACTION_COST
+from game.effect import remove_effect_from_entity
 from game.entity_tools import get_name
 from game.item import ApplyAction
 from game.item_tools import add_to_inventory, equip_item, unequip_item
 from game.map import MapKey
 from game.world.map_tools import get_map
 from game.ui.messages import add_message
-from game.tags import EquippedBy, IsAlive, IsBlocking, IsIn, IsItem, IsPlayer
+from game.tags import Affecting, EquippedBy, IsAlive, IsBlocking, IsEffect, IsIn, IsItem, IsPlayer
 from game.world.tiles import TILES
 from game.travel import path_to
 
@@ -139,11 +140,17 @@ class BaseAI:
 
     def __call__(self, actor: tcod.ecs.Entity) -> ActionResult:
         result = self.perform_action(actor)
-        if isinstance(result, Success):
-            # TODO - should passives run on some impossible actions?
-            passives = actor.components.get(Passives, [])
-            for passive in passives:
-                passive.affect(actor)
+
+        print("Looping through effects")
+        for e in actor.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, actor)]):
+            print("Effect entity", e)
+            effect = e.components[Effect]
+            print("Effect", effect)
+            consumed = effect.affect(actor)
+            print("Consumed", consumed)
+            if consumed:
+                remove_effect_from_entity(actor, e)
+
         return result
 
 

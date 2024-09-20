@@ -6,9 +6,9 @@ from typing import Callable, Final, Tuple
 import attrs
 
 from game.effect import Effect
-from game.effects import Healing
+from game.effects import Regeneration
 from game.components import AIBuilder
-from game.actions import Action, HostileAI, SpawnerAI
+from game.actions import Action, BaseAI, HostileAI, SpawnerAI
 
 @attrs.define
 class Creature:
@@ -23,14 +23,14 @@ class Creature:
     spawn_weight: Tuple[Tuple[int, int], ...] = attrs.field(kw_only=True, default=None)
     ai: AIBuilder | None = attrs.field(kw_only=True, default=AIBuilder(HostileAI))
     # ai: Callable[[], BaseAI] | None = attrs.field(kw_only=True, factory=lambda: HostileAI)
-    passives: Tuple[Effect] = attrs.field(kw_only=True, default=None)
+    passives: Tuple[str] = attrs.field(kw_only=True, default=None)
 
 
 Creatures: Final = (
     Creature("player", ord("@"), (255, 255, 255), 30, 5, 0, 100, 0, ai=None),
     Creature("rat", ord("r"), (63, 127, 63), 4, 1, 0, 100, 3, spawn_weight=((3, 100),)),
-    Creature("rat_nest", ord("S"), (63, 127, 63), 10, 1, 0, 100, 3, spawn_weight=((1, 100),), ai=AIBuilder(SpawnerAI, {"spawned_entity_name": "rat", "spawn_rate": 5})),
+    Creature("rat_nest", ord("S"), (63, 127, 63), 100, 1, 0, 100, 3, spawn_weight=((1, 100),), ai=AIBuilder(SpawnerAI, {"spawned_entity_name": "rat", "spawn_rate": 5})),
     # Creature("orc", ord("o"), (63, 127, 63), 10, 3, 0, 50, 35, spawn_weight=((2, 80),)),
     # Creature("snake", ord("s"), (63, 127, 63), 10, 3, 0, 200, 35, spawn_weight=((2, 80),)),
-    # Creature("troll", ord("T"), (0, 127, 0), 16, 5, 1, 100, 100, spawn_weight=((3, 15), (5, 30), (7, 60)), passives=(Healing(1),))
+    # Creature("troll", ord("T"), (0, 127, 0), 16, 5, 1, 100, 100, spawn_weight=((3, 15), (5, 30), (7, 60)), passives=("lesser_regeneration",))
 )

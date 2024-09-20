@@ -73,6 +73,7 @@ def consume_item(item: Entity) -> None:
         item.clear()
 
 
+
 def add_to_inventory(actor: Entity, item: Entity) -> ActionResult:
     """Add an item to actors inventory."""
     if item.relation_tag.get(IsIn) is actor:
