@@ -192,9 +192,7 @@ def melee_damage(attacker: tcod.ecs.Entity, target: tcod.ecs.Entity) -> CombatAc
         # This grabs all of the attacker's equipment that apply effects
         for effect in attacker.registry.Q.all_of(components=[EffectsApplied], relations=[(EquippedBy, attacker)]):
             equip_effects = effect.components[EffectsApplied]
-            print("all effects", equip_effects)
             for equip_effect in equip_effects:
-                print("an effect", equip_effect)
                 add_effect_to_entity(target, equip_effect)
     return CombatAction(damage=damage, action_type=action_type)
 

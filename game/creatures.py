@@ -29,8 +29,8 @@ class Creature:
 Creatures: Final = (
     Creature("player", ord("@"), (255, 255, 255), 30, 5, 0, 100, 0, ai=None),
     Creature("rat", ord("r"), (63, 127, 63), 4, 1, 0, 100, 3, spawn_weight=((3, 100),)),
-    Creature("rat_nest", ord("S"), (63, 127, 63), 100, 1, 0, 100, 3, spawn_weight=((1, 100),), ai=AIBuilder(SpawnerAI, {"spawned_entity_name": "rat", "spawn_rate": 5})),
+    Creature("rat_nest", ord("S"), (63, 127, 63), 10, 1, 0, 100, 3, spawn_weight=((1, 100),), ai=AIBuilder(SpawnerAI, {"spawned_entity_name": "rat", "spawn_rate": 3})),
+    Creature("troll", ord("T"), (0, 127, 0), 16, 5, 1, 100, 100, spawn_weight=((1, 100), (5, 30), (7, 60)), passives=("lesser_regeneration",))
     # Creature("orc", ord("o"), (63, 127, 63), 10, 3, 0, 50, 35, spawn_weight=((2, 80),)),
     # Creature("snake", ord("s"), (63, 127, 63), 10, 3, 0, 200, 35, spawn_weight=((2, 80),)),
-    # Creature("troll", ord("T"), (0, 127, 0), 16, 5, 1, 100, 100, spawn_weight=((3, 15), (5, 30), (7, 60)), passives=("lesser_regeneration",))
 )

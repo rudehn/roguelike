@@ -19,17 +19,11 @@ def add_effect_to_entity(entity: Entity, effect_template: Entity):
     """
     Add the specified effect to the specified entity
     """
-    from game.components import Name
-    print("Got entity", entity)
-    print("Got effect template", effect_template)
-    print("Adding", effect_template.components[Name], "to", entity.components[Name])
     effect = spawn_effect(effect_template)
     effect.relation_tag[Affecting] = entity
 
 def remove_effect_from_entity(entity: Entity, effect: Entity):
     """Remove the specified effect from the specified entity"""
-    from game.components import Name
-    print("Removing effect", effect.components[Name], "from", entity.components[Name])
     effect.relation_tag.pop(Affecting, None)
     effect.clear()
 

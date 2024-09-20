@@ -60,7 +60,6 @@ def unequip_item(item: Entity, /) -> None:
     actor = item.relation_tag.get(IsIn)
     item.relation_tag.pop(EquippedBy, None)
     item.relation_tag.pop(Affecting, None)
-    print("Got actor", actor)
     if actor:
         recalculate_stats(actor)
 

@@ -147,4 +147,5 @@ implement effects monsters can apply to player
 TODO - effect instance is shared amongst all entities
 # TODO - how to prevent mutating global effect state on an entity? Use Position.replace style?
 # TODO - Make AI class frozen?
+# Organize components & other code
 """

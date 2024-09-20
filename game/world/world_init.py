@@ -24,6 +24,7 @@ from game.components import (
     Position,
     PowerBonus,
     Speed,
+    StartingEffects,
     RewardXP,
     SpawnWeight,
     Attack,
@@ -130,10 +131,7 @@ def init_new_creature(
     if ai:
         race.components[AIBuilder] = ai
     if passives:
-        # TODO - should we just be saving the effect strings & applying the Effect objects on instantiation?
-        effects = map(lambda e: world[e], passives)
-        for effect in effects:
-            add_effect_to_entity(race, effect)
+        race.components[StartingEffects] = passives
     if spawn_weight:
         race.components[SpawnWeight] = spawn_weight
 

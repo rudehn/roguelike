@@ -122,6 +122,9 @@ SpawnWeight: Final = ("SpawnWeight", tuple[tuple[int, int], ...])
 EffectsApplied: Final = ("EffectsApplied", tuple[tcod.ecs.Entity, ...])
 """Effects the entity will apply each turn to the target"""
 
+StartingEffects: Final = ("StartingEffects", tuple[str, ...])
+"""Effects that an entity starts with when created"""
+
 # EquipSlotType = NewType('EquipSlotType', tuple[object])
 EquipSlot: Final = ("EquipSlot", int)
 """Name of the equipment slot this item uses."""
