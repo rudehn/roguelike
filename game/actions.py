@@ -233,34 +233,27 @@ class SpawnerAI(BaseAI):
                 # Get a random location near the spawner.
                 x=actor_pos.x + rng.randint(-3, 3)
                 y=actor_pos.y + rng.randint(-3, 3)
-                new_position = Position(x, y, actor.components[Position].map)
+                new_position = Position(x, y, map_)
                 # Check if out of bounds or not walkable
                 map_shape = new_position.map.components[MapShape]
-                print("\nTesting")
-                print(new_position.map.components[Tiles].shape)
                 tile_index = new_position.map.components[Tiles][new_position.ij]
 
                 tries = 0
-
+                # TODO - consolidate logic with Move action into function
                 while (
-                    (0 <= new_position.x < map_shape.width and 0 <= new_position.y < map_shape.height) or # Out of bounds
+                    not (0 <= new_position.x < map_shape.width and 0 <= new_position.y < map_shape.height) or # Out of bounds
                     (TILES["walk_cost"][tile_index] == 0) or # Not walkable
-                    actor.registry.Q.all_of(tags=[IsBlocking, new_position], relations=[(IsIn, actor.components[Position].map)]) # Blocked by an entity
+                    actor.registry.Q.all_of(tags=[IsBlocking, new_position], relations=[(IsIn, map_)]).get_entities() # Blocked by an entity
                 ):
-                    print("New position", new_position)
-                    print("Tile index", tile_index)
-                    print("Not Walkable", (TILES["walk_cost"][tile_index] == 0))
-                    print("In bounds", (0 <= new_position.x < map_shape.width and 0 <= new_position.y < map_shape.height))
                     x=actor_pos.x + rng.randint(-3, 3)
                     y=actor_pos.y + rng.randint(-3, 3)
-                    new_position = Position(x, y, actor.components[Position].map)
+                    new_position = Position(x, y, map_)
                     tile_index = new_position.map.components[Tiles][new_position.ij]
                     tries += 1
                     if tries > 10:
                         return Success() # Wait action; no room to spawn an entity
 
-                print("Spawing")
-                e = spawn_actor(spawned_entity, Position(x, y, actor.components[Position].map))
+                spawn_actor(spawned_entity, Position(x, y, map_))
 
                 if self.visible:
                     spawner_name = actor.components.get(Name, "?")
@@ -273,28 +266,6 @@ class SpawnerAI(BaseAI):
             self.spawn_timer += 1
 
         return Success()
-
-
-
-    def perform(self) -> None:
-
-        # If the spawn timer is greater than the spawn rate, spawn a new enemy.
-        if self.spawn_timer >= self.spawn_rate:
-            # Reset the spawn timer.
-
-            tries = 0
-
-            # for other in actor.registry.Q.all_of(tags=[IsBlocking], relations=[(IsIn, map_)]):
-            while not self.engine.game_map.in_bounds(x, y) or not self.engine.game_map.get_blocking_entity_at_location(x, y):
-                x = self.entity.x + random.randint(-3, 3)
-                y = self.entity.y + random.randint(-3, 3)
-                tries += 1
-                if tries > 10:
-                    return WaitAction(self.entity).perform() # If the spawner is not able to find a valid location, it will wait.
-
-            # Spawn the new enemy.
-            self.spawned_entity.spawn(self.engine.game_map, x, y, True) # Make sure to set the spawned entity to be a swarm entity.
-
 
 @attrs.define
 class PickupItem:
