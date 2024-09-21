@@ -13,6 +13,18 @@ def spawn_effect(template: Entity):
     effect = template.instantiate()
     # We don't want to mutate the state of the global effect
     effect.components[Effect] = copy.deepcopy(template.components[Effect])
+
+
+    # trait.components[TraitActivation] = activation
+
+    # # TODO - can we copy position and put the targeting code in like trait activation, then do a filter by
+    # # specific enum value?
+    # match target:
+    #     case TraitTarget.SELF:
+    #         trait.tags.add(TargetSelf)
+    #     case TraitTarget.ENEMY:
+    #         trait.tags.add(TargetEnemy)
+
     return effect
 
 def add_effect_to_entity(entity: Entity, effect_template: Entity):
@@ -21,6 +33,9 @@ def add_effect_to_entity(entity: Entity, effect_template: Entity):
     """
     effect = spawn_effect(effect_template)
     effect.relation_tag[Affecting] = entity
+    from game.components import Name
+    print("applying ", effect.components[Name], "to", entity.components[Name])
+    return effect
 
 def remove_effect_from_entity(entity: Entity, effect: Entity):
     """Remove the specified effect from the specified entity"""

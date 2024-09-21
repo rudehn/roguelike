@@ -22,11 +22,13 @@ from game.components import (
     Name,
     PowerBonus,
     RewardXP,
+    TraitActivation,
+    TraitTarget,
     Attack,
 )
 from game.effect import add_effect_to_entity
 from game.ui.messages import add_message
-from game.tags import Affecting, EquippedBy, IsAlive, IsBlocking, IsPlayer
+from game.tags import Affecting, EquippedBy, IsAlive, IsBlocking, IsEffectSpawner, IsPlayer
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +196,19 @@ def melee_damage(attacker: tcod.ecs.Entity, target: tcod.ecs.Entity) -> CombatAc
             equip_effects = effect.components[EffectsApplied]
             for equip_effect in equip_effects:
                 add_effect_to_entity(target, equip_effect)
+
+        # This grabs all the racial traits that spawn an effect on attack
+        for effect_spawner in attacker.registry.Q.all_of(components=[TraitActivation, TraitTarget], tags=[IsEffectSpawner, TraitActivation.ON_ATTACK], relations=[(Affecting, attacker)]):
+            target_type = effect_spawner.components[TraitTarget]
+            effects = effect_spawner.components[EffectsApplied]
+            for effect in effects:
+                match target_type:
+                    case TraitTarget.SELF:
+                        add_effect_to_entity(attacker, effect)
+
+                    case TraitTarget.ENEMY:
+                        add_effect_to_entity(target, effect)
+
     return CombatAction(damage=damage, action_type=action_type)
 
 def apply_damage(entity: tcod.ecs.Entity, damage: int, blame: tcod.ecs.Entity) -> None:

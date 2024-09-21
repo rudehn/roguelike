@@ -141,11 +141,11 @@ class BaseAI:
     def __call__(self, actor: tcod.ecs.Entity) -> ActionResult:
         result = self.perform_action(actor)
 
-        for e in actor.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, actor)]):
-            effect = e.components[Effect]
-            consumed = effect.affect(actor)
-            if consumed:
-                remove_effect_from_entity(actor, e)
+        # for e in actor.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, actor)]):
+        #     effect = e.components[Effect]
+        #     consumed = effect.affect(actor)
+        #     if consumed:
+        #         remove_effect_from_entity(actor, e)
 
         return result
 

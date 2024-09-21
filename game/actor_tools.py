@@ -9,10 +9,10 @@ import tcod.constants
 import tcod.ecs
 import tcod.map
 
-from game.components import AI, AIBuilder, XP, Graphic, Level, MemoryTiles, Name, Position, StartingEffects, Tiles, VisibleTiles
+from game.components import AI, AIBuilder, XP, EffectsApplied, Graphic, Level, MemoryTiles, Name, Position, RacialTraits, Tiles, TraitActivation, TraitTarget, VisibleTiles
 from game.effect import add_effect_to_entity
 from game.ui.messages import add_message
-from game.tags import IsAlive, IsBlocking, IsGhost, IsIn, IsPlayer
+from game.tags import IsAlive, IsBlocking, IsGhost, IsIn, IsPlayer, Affecting
 from game.world.tiles import TILES
 
 
@@ -72,10 +72,21 @@ def spawn_actor(template: tcod.ecs.Entity, position: Position) -> tcod.ecs.Entit
     if ai_builder:
         actor.components[AI] = ai_builder.build()
 
-    passives = actor.components.get(StartingEffects, ())
-    for passive in passives:
-        effect = template.world[passive]
-        add_effect_to_entity(actor, effect)
+    traits = actor.components.get(RacialTraits, ())
+
+    # We are going to create a global effect entity, affecting this actor
+    # This effect will have a target and activation method
+    # On hit/on defend, we query effects that affect the actor, that also have the expected activation method
+    for trait in traits:
+        if trait.activation == TraitActivation.ON_CREATE:
+            add_effect_to_entity(actor, actor.registry[trait.effect_name])
+        else:
+            # The creation & application of the trait's effect is deferred until a later action
+            effect_spawner = actor.registry["effect_spawner"].instantiate()
+            effect_spawner.components[EffectsApplied] = (actor.registry[trait.effect_name],)
+            effect_spawner.components[TraitActivation] = trait.activation
+            effect_spawner.components[TraitTarget] = trait.target
+            effect_spawner.relation_tag[Affecting] = actor
     return actor
 
 

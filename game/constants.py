@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
+from enum import auto, Enum
 from typing import Final
 
 from tcod.event import KeySym
 
-DEFAULT_ACTION_COST = 100
+class TraitTarget(Enum):
+    SELF = auto()
+    ENEMY = auto()
+
+class TraitActivation(Enum):
+    """When the trait spawns an effect on the target entity"""
+    ON_CREATE = auto()
+    ON_ATTACK = auto()
+    ON_DEFEND = auto()
+
+DEFAULT_ACTION_COST: Final = 100
 
 CURSOR_Y_KEYS: Final = {
     KeySym.UP: -1,

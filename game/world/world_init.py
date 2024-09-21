@@ -23,6 +23,8 @@ from game.components import (
     Name,
     Position,
     PowerBonus,
+    RacialTrait,
+    RacialTraits,
     Speed,
     StartingEffects,
     RewardXP,
@@ -33,13 +35,13 @@ from game.creatures import Creatures
 from game.effect import add_effect_to_entity, Effect
 from game.effects import Healing, Poisoned, Regeneration
 from game.item import ApplyAction
-from game.item_tools import equip_item
+from game.item_tools import create_new_item, equip_item
 from game.items import Potion, RandomTargetScroll, TargetScroll
 from game.world.map_tools import get_map
 from game.ui.messages import MessageLog, add_message
 from game.spell import EntitySpell, PositionSpell
 from game.spells import Confusion, Fireball, LightningBolt
-from game.tags import IsActor, IsEffect, IsIn, IsItem, IsPlayer
+from game.tags import IsActor, IsEffect, IsEffectSpawner, IsIn, IsItem, IsPlayer, IsTrait, TargetEnemy, TargetSelf
 
 
 def new_world() -> tcod.ecs.Registry:
@@ -58,14 +60,13 @@ def new_world() -> tcod.ecs.Registry:
 
     player = game.actor_tools.spawn_actor(world["player"], start.components[Position])
     player.tags.add(IsPlayer)
-    equip_item(player, world["dagger"].instantiate())
-    equip_item(player, world["leather_armor"].instantiate())
+    # equip_item(player, create_new_item(world["dagger"]))
+    # equip_item(player, create_new_item(world["leather_armor"]))
 
     game.actor_tools.update_fov(player)
 
     add_message(world, "Hello and welcome, adventurer, to yet another dungeon!", "welcome_text")
     return world
-
 
 def init_new_equippable(
     world: tcod.ecs.Registry,
@@ -90,9 +91,9 @@ def init_new_equippable(
         equippable.components[DefenseBonus] = defense_bonus
     if hp_bonus:
         equippable.components[HPBonus] = hp_bonus
+
     if effects_applied:
-        # TODO - verify all specified are effects
-        equippable.components[EffectsApplied] = tuple(map(lambda e: world[e], [e for e in effects_applied]))
+        equippable.components[StartingEffects] = effects_applied
 
     if spawn_weight:
         equippable.components[SpawnWeight] = spawn_weight
@@ -110,7 +111,7 @@ def init_new_creature(
     xp: int,
     ai: AIBuilder | None,
     energy: int = 100,
-    passives: tuple[str, ...] | None = None,
+    traits: tuple[RacialTrait, ...] | None = None,
     spawn_weight: tuple[tuple[int, int], ...] | None = None,
 ) -> None:
     """
@@ -130,8 +131,8 @@ def init_new_creature(
     race.components[RewardXP] = xp
     if ai:
         race.components[AIBuilder] = ai
-    if passives:
-        race.components[StartingEffects] = passives
+    if traits:
+        race.components[RacialTraits] = traits
     if spawn_weight:
         race.components[SpawnWeight] = spawn_weight
 
@@ -146,9 +147,12 @@ def init_new_effect(
     effect.components[Name] = name
     effect.components[Effect] = effect_type
 
-
 def init_effects(world: tcod.ecs.Registry):
     """Initialize the effects database"""
+
+    effect_spawner = world['effect_spawner']
+    effect_spawner.tags.add(IsEffectSpawner)
+
     effects = [
         ("lesser_healing", Healing(4)),
         ("healing", Healing(10)),
@@ -176,7 +180,7 @@ def init_creatures(world: tcod.ecs.Registry) -> None:
             xp=creature.xp,
             ai=creature.ai,
             spawn_weight=creature.spawn_weight,
-            passives=creature.passives,
+            traits=creature.traits,
         )
 
 
@@ -198,7 +202,7 @@ def init_items(world: tcod.ecs.Registry) -> None:
     confusion_scroll.components[PositionSpell] = Confusion(duration=10)
     # confusion_scroll.components[ApplyAction] = RandomTargetScroll(maximum_range=5)
     # confusion_scroll.components[EntitySpell] = Confusion(duration=10)
-    confusion_scroll.components[SpawnWeight] = ((2, 25),)
+    confusion_scroll.components[SpawnWeight] = ((2, 10),)
 
     lightning_scroll = world["lightning_scroll"]
     lightning_scroll.tags.add(IsItem)
@@ -206,7 +210,7 @@ def init_items(world: tcod.ecs.Registry) -> None:
     lightning_scroll.components[Graphic] = Graphic(ord("~"), (255, 255, 0))
     lightning_scroll.components[ApplyAction] = RandomTargetScroll(maximum_range=5)
     lightning_scroll.components[EntitySpell] = LightningBolt(damage=20)
-    lightning_scroll.components[SpawnWeight] = ((3, 25),)
+    lightning_scroll.components[SpawnWeight] = ((3, 10),)
 
     fireball_scroll = world["fireball_scroll"]
     fireball_scroll.tags.add(IsItem)
@@ -214,7 +218,7 @@ def init_items(world: tcod.ecs.Registry) -> None:
     fireball_scroll.components[Graphic] = Graphic(ord("~"), (255, 0, 0))
     fireball_scroll.components[ApplyAction] = TargetScroll()
     fireball_scroll.components[PositionSpell] = Fireball(damage=12, radius=3)
-    fireball_scroll.components[SpawnWeight] = ((6, 25),)
+    fireball_scroll.components[SpawnWeight] = ((6, 10),)
 
     equippables = (
         ("dagger", ord("/"), (0, 191, 255), "weapon", )
@@ -226,29 +230,29 @@ def init_items(world: tcod.ecs.Registry) -> None:
         ch=ord("/"),
         fg=(0, 191, 255),
         equip_slot="weapon",
+        power_bonus=1,
+        # hp_bonus=20,
+        #effects_applied=("lesser_poison",)
+    )
+    init_new_equippable(
+        world=world,
+        name="sword",
+        ch=ord("/"),
+        fg=(0, 191, 255),
+        equip_slot="weapon",
+        power_bonus=4,
+        spawn_weight=((4, 5),)
+    )
+    init_new_equippable(
+        world=world,
+        name="sword",
+        ch=ord("/"),
+        fg=(0, 191, 255),
+        equip_slot="weapon",
         power_bonus=2,
-        hp_bonus=20,
-        effects_applied=("lesser_poison",)
-    )
-    init_new_equippable(
-        world=world,
-        name="sword",
-        ch=ord("/"),
-        fg=(0, 191, 255),
-        equip_slot="weapon",
-        power_bonus=4,
+        # hp_bonus=20,
         spawn_weight=((4, 5),)
-    )
-    init_new_equippable(
-        world=world,
-        name="sword",
-        ch=ord("/"),
-        fg=(0, 191, 255),
-        equip_slot="weapon",
-        power_bonus=4,
-        hp_bonus=20,
-        spawn_weight=((4, 5),)
-    )
+)
 
     init_new_equippable(
         world=world,
@@ -264,6 +268,6 @@ def init_items(world: tcod.ecs.Registry) -> None:
         ch=ord("["),
         fg=(139, 69, 19),
         equip_slot="armor",
-        defense_bonus=3,
-        spawn_weight=((6, 15),)
+        defense_bonus=2,
+        spawn_weight=((6, 5),)
     )

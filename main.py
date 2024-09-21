@@ -88,7 +88,6 @@ TODO
 - Split AI into it's own file
 - One file for protocols?
 - AreaOfEffect an area of effect with just 1 cell is kinda weird...
-- should passives run on some impossible actions?
 - Figure out tags for downstairs & upstairs & how we travel between levels
 - Show a stat screen for enemies?
 
@@ -125,9 +124,7 @@ the user has to double click to perform the action
 https://github.com/jossse69/Python-RL/blob/main/components/equippable.py
 Apply status effects to ground. Poison/confusion/burn
 - Apply status effect to weapon, attacking generates poison, bleeding, etc
-- Add immunities
 https://github.com/jossse69/Python-RL/blob/main/entity_factories.py
-- How do we remove status effects from entities?
 https://github.com/jossse69/Python-RL/blob/main/components/ai.py#L130
 https://github.com/bkeil/CompleteRoguelikeTutorial/blob/master/entity_types.py#L118
 
@@ -140,12 +137,37 @@ is immune to the effect. Then on the entities turn, we iterate all effects appli
 We also need to add a mechanism to update the duration, or stack effects, so we likely need a function to
 join together by effect type to sum & report
 
-TODO - split up EffectsApplied into target/defender effects applied
 TODO - attacking should only grab the effect from the weapon used
 Add effect strings when the effect is initiated
-implement effects monsters can apply to player
-TODO - effect instance is shared amongst all entities
-# TODO - how to prevent mutating global effect state on an entity? Use Position.replace style?
-# TODO - Make AI class frozen?
+
 # Organize components & other code
+print messages when picking up loot
+lightning bolt struck the remains of rat
+refactor potions to use DB of effects
+
+Update combat system;
+- STR
+- DEX
+- CON
+- AGI
+- add dice rolls for attack, static defense, add pierce (possibly at higher STR?); AGI increases speed
+
+
+Things to implement:
+
+Racial Traits:
+- Each trait is just an effect that the race has. The effect can be a boon for the creature, such as regeneration, or
+  it can apply a negative effect on any attacker. This requires effects to have specific types, such as acting on the
+  owner, vs apply on hit, apply on being hit, apply on death, etc.
+- Racial traits can also provide immunities, like poison immunity
+
+
+Implement Priority:
+- Racial traits; apply effects on hit vs being hit; update end of turn to only get traits that affect the owner;
+  update spawn_effect()
+- Come up with list of 10 racial traits
+- Come up with 3 total status effects
+- And corresponding immunities
+
+TODO - on attack apply to enemy isn't working - player AI doesn't inherit from base AI
 """

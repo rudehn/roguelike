@@ -22,15 +22,16 @@ from game.action import Action, Impossible, Poll, Success  # noqa: TCH001
 from game.action_tools import do_player_action, get_entity_energy, get_entity_speed, update_entity_energy
 from game.actions import ApplyItem, Bump, DropItem, PickupItem, TakeStairs
 from game.actor_tools import can_level_up, get_player_actor, level_up, required_xp_for_level, update_fov
-from game.components import AI, HP, XP, Defense, Level, MaxHP, Position, Attack
+from game.components import AI, HP, XP, Defense, Level, MaxHP, Position, Attack, Effect
 from game.constants import CURSOR_Y_KEYS, DIRECTION_KEYS
 from game.combat import get_crit_chance, get_crit_damage_pct, get_defense, get_evade_chance, get_max_damage, get_min_damage
 from game.entity_tools import get_desc
+from game.effect import remove_effect_from_entity
 from game.item_tools import get_inventory_keys
 from game.ui.messages import add_message, Message, MessageLog
 from game.ui.rendering import main_render, render_messages
 from game.state import State
-from game.tags import IsPlayer, IsIn
+from game.tags import IsEffect, IsPlayer, IsIn, Affecting
 
 
 def process_entity_turn(entity: tcod.ecs.Entity, action: Action):
@@ -47,6 +48,12 @@ def process_entity_turn(entity: tcod.ecs.Entity, action: Action):
                 update_entity_energy(entity, -action.cost)
                 available_energy -= action.cost
     update_entity_energy(entity, get_entity_speed(entity))
+
+    for e in entity.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, entity)]):
+        effect = e.components[Effect]
+        consumed = effect.affect(entity)
+        if consumed:
+            remove_effect_from_entity(entity, e)
 
 @attrs.define
 class InGame(State):

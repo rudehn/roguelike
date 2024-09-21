@@ -8,7 +8,7 @@ from tcod.ecs import Entity, IsA
 
 from game.action import ActionResult, Impossible, Success
 from game.combat import recalculate_stats
-from game.components import AssignedKey, Count, EquipSlot, Name, Position
+from game.components import AssignedKey, Count, EffectsApplied, EquipSlot, Name, Position, StartingEffects
 from game.constants import INVENTORY_KEYS
 from game.entity_tools import get_name
 from game.item import FullInventoryError
@@ -16,10 +16,17 @@ from game.tags import Affecting, EquippedBy, IsActor, IsIn, IsItem
 
 logger = logging.getLogger(__name__)
 
+def create_new_item(template: Entity) -> Entity:
+    item = template.instantiate()
+
+    effects = template.components.get(StartingEffects, ())
+    if effects:
+        item.components[EffectsApplied] = tuple(map(lambda e: template.registry[e], [e for e in effects]))
+    return item
 
 def spawn_item(template: Entity, position: Position) -> Entity:
     """Spawn an item based on `template` at `position`. Return the spawned entity."""
-    item = template.instantiate()
+    item = create_new_item(template)
     item.components[Position] = position
     return item
 

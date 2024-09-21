@@ -11,6 +11,7 @@ import tcod.ecs.callbacks
 from numpy.typing import NDArray
 
 from game.action import Action
+from game.constants import TraitActivation, TraitTarget
 from game.effect import Effect
 from game.tags import IsIn
 
@@ -48,6 +49,14 @@ class Position:
         """Return the squared distance between two positions."""
         assert self.map == other.map
         return (self.x - other.x) ** 2 + (self.y - other.y) ** 1
+
+
+
+@attrs.define(frozen=True)
+class RacialTrait:
+    effect_name: str
+    target: TraitTarget
+    activation: TraitActivation
 
 
 @attrs.define(frozen=True)
@@ -125,6 +134,12 @@ EffectsApplied: Final = ("EffectsApplied", tuple[tcod.ecs.Entity, ...])
 StartingEffects: Final = ("StartingEffects", tuple[str, ...])
 """Effects that an entity starts with when created"""
 
+RacialTraits: Final = ("RacialTraits", tuple[RacialTrait, ...])
+"""Racial traits the entity has"""
+
+
+
+
 # EquipSlotType = NewType('EquipSlotType', tuple[object])
 EquipSlot: Final = ("EquipSlot", int)
 """Name of the equipment slot this item uses."""
@@ -157,6 +172,20 @@ def on_position_changed(entity: tcod.ecs.Entity, old: Position | None, new: Posi
         entity.relation_tag[IsIn] = new.map
     else:
         del entity.relation_tags_many[IsIn]
+
+
+@tcod.ecs.callbacks.register_component_changed(component=TraitActivation)
+def on_trait_activation_changed(entity: tcod.ecs.Entity, old: TraitActivation | None, new: TraitActivation | None) -> None:
+    """Called when an entities position is changed."""
+    if old == new:
+        return
+    if old is not None:
+        entity.tags.remove(old)
+    if new is not None:
+        entity.tags.add(new)
+    else:
+        pass
+        #del entity.relation_tags_many[IsIn]
 
 # @tcod.ecs.callbacks.register_component_changed(component=EquipSlot)
 # def on_equipslot_changed(entity: tcod.ecs.Entity, old: EquipSlotType | None, new: EquipSlotType | None) -> None:
