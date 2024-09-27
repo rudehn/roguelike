@@ -3,28 +3,29 @@
 from __future__ import annotations
 
 from random import Random
-from typing import List
 
 import tcod.ecs
 
 import game.actor_tools
 import game.world.procgen
+from game.combat.combat_types import DamageType, DamageResistance
 from game.components import (
     AIBuilder,
     HP,
     Defense,
     DefenseBonus,
-    EffectsApplied,
     EquipSlot,
     Energy,
     Graphic,
     HPBonus,
+    LootDropChance,
     MaxHP,
     Name,
     Position,
     PowerBonus,
     RacialTrait,
     RacialTraits,
+    Resistances,
     Speed,
     StartingEffects,
     RewardXP,
@@ -34,9 +35,11 @@ from game.components import (
 from game.creatures import Creatures
 from game.effect import add_effect_to_entity, Effect
 from game.effects import Healing, Poisoned, Regeneration
-from game.item import ApplyAction
-from game.item_tools import create_new_item, equip_item
-from game.items import Potion, RandomTargetScroll, TargetScroll
+from game.items.item import ApplyAction
+from game.items.item_tools import create_new_item, equip_item
+from game.items.item_types import EquipmentSlots
+from game.items.item_factories import EquipmentItems
+from game.items.items import Potion, RandomTargetScroll, TargetScroll
 from game.world.map_tools import get_map
 from game.ui.messages import MessageLog, add_message
 from game.spell import EntitySpell, PositionSpell
@@ -73,8 +76,8 @@ def init_new_equippable(
     name: str,
     ch: int,
     fg: tuple[int, int, int],
-    equip_slot: str,
-    power_bonus: int | None = None,
+    equip_slot: EquipmentSlots,
+    power_bonus: str | None = None,
     defense_bonus: int | None = None,
     hp_bonus: int | None = None,
     effects_applied: tuple[str] | None = None,
@@ -84,7 +87,7 @@ def init_new_equippable(
     equippable.tags.add(IsItem)
     equippable.components[Name] = name.replace("_", " ").capitalize()
     equippable.components[Graphic] = Graphic(ch, fg)
-    equippable.components[EquipSlot] = equip_slot
+    equippable.components[EquipSlot] = "weapon" if equip_slot == EquipmentSlots.WEAPON else "armor"
     if power_bonus:
         equippable.components[PowerBonus] = power_bonus
     if defense_bonus:
@@ -105,10 +108,13 @@ def init_new_creature(
     ch: int,
     fg: tuple[int, int, int],
     hp: int,
-    attack: int,
+    attack: str,
     defense: int,
     speed: int,
     xp: int,
+    loot_pct: float,
+    damage_type: DamageType,
+    resistances: tuple[DamageResistance, ...],
     ai: AIBuilder | None,
     energy: int = 100,
     traits: tuple[RacialTrait, ...] | None = None,
@@ -127,8 +133,13 @@ def init_new_creature(
     race.components[Speed] = speed
     race.components[HP] = race.components[MaxHP] = hp
     race.components[Attack] = attack
+    race.components[DamageType] = damage_type
     race.components[Defense] = defense
     race.components[RewardXP] = xp
+    race.components[LootDropChance] = loot_pct
+
+    if resistances:
+        race.components[Resistances] = resistances
     if ai:
         race.components[AIBuilder] = ai
     if traits:
@@ -153,7 +164,7 @@ def init_effects(world: tcod.ecs.Registry):
     effect_spawner = world['effect_spawner']
     effect_spawner.tags.add(IsEffectSpawner)
 
-    effects = [
+    effects: list[tuple[str, Effect]] = [
         ("lesser_healing", Healing(4)),
         ("healing", Healing(10)),
         ("greater_healing", Healing(20)),
@@ -162,8 +173,8 @@ def init_effects(world: tcod.ecs.Registry):
         ("poison", Poisoned(amount=2, duration=5)),
         ("greater_poison", Poisoned(amount=3, duration=6)),
     ]
-    for effect in effects:
-        init_new_effect(world, effect[0], effect[1])
+    for (effect_name, effect) in effects:
+        init_new_effect(world, effect_name, effect)
 
 def init_creatures(world: tcod.ecs.Registry) -> None:
     """Initialize monster database."""
@@ -178,6 +189,9 @@ def init_creatures(world: tcod.ecs.Registry) -> None:
             defense=creature.defense,
             speed=creature.speed,
             xp=creature.xp,
+            loot_pct=creature.loot_drop_pct,
+            damage_type=creature.damage_type,
+            resistances=creature.resistances,
             ai=creature.ai,
             spawn_weight=creature.spawn_weight,
             traits=creature.traits,
@@ -209,7 +223,7 @@ def init_items(world: tcod.ecs.Registry) -> None:
     lightning_scroll.components[Name] = "Lightning Scroll"
     lightning_scroll.components[Graphic] = Graphic(ord("~"), (255, 255, 0))
     lightning_scroll.components[ApplyAction] = RandomTargetScroll(maximum_range=5)
-    lightning_scroll.components[EntitySpell] = LightningBolt(damage=20)
+    lightning_scroll.components[EntitySpell] = LightningBolt(damage=10)
     lightning_scroll.components[SpawnWeight] = ((3, 10),)
 
     fireball_scroll = world["fireball_scroll"]
@@ -220,54 +234,15 @@ def init_items(world: tcod.ecs.Registry) -> None:
     fireball_scroll.components[PositionSpell] = Fireball(damage=12, radius=3)
     fireball_scroll.components[SpawnWeight] = ((6, 10),)
 
-    equippables = (
-        ("dagger", ord("/"), (0, 191, 255), "weapon", )
-    )
-
-    init_new_equippable(
-        world=world,
-        name="dagger",
-        ch=ord("/"),
-        fg=(0, 191, 255),
-        equip_slot="weapon",
-        power_bonus=1,
-        # hp_bonus=20,
-        #effects_applied=("lesser_poison",)
-    )
-    init_new_equippable(
-        world=world,
-        name="sword",
-        ch=ord("/"),
-        fg=(0, 191, 255),
-        equip_slot="weapon",
-        power_bonus=4,
-        spawn_weight=((4, 5),)
-    )
-    init_new_equippable(
-        world=world,
-        name="sword",
-        ch=ord("/"),
-        fg=(0, 191, 255),
-        equip_slot="weapon",
-        power_bonus=2,
-        # hp_bonus=20,
-        spawn_weight=((4, 5),)
-)
-
-    init_new_equippable(
-        world=world,
-        name="leather_armor",
-        ch=ord("["),
-        fg=(139, 69, 19),
-        equip_slot="armor",
-        defense_bonus=1,
-    )
-    init_new_equippable(
-        world=world,
-        name="chain_mail",
-        ch=ord("["),
-        fg=(139, 69, 19),
-        equip_slot="armor",
-        defense_bonus=2,
-        spawn_weight=((6, 5),)
-    )
+    for equipment in EquipmentItems:
+        init_new_equippable(
+            world,
+            name=equipment.name,
+            ch=equipment.ch,
+            fg=equipment.fg,
+            equip_slot=equipment.slot,
+            power_bonus=equipment.attack_bonus,
+            defense_bonus=equipment.defense_bonus,
+            hp_bonus=equipment.hp_bonus,
+            spawn_weight=equipment.spawn_weight,
+        )

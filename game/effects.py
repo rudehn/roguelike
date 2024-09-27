@@ -5,7 +5,7 @@ from __future__ import annotations
 import attrs
 from tcod.ecs import Entity  # noqa: TCH002
 
-from game.combat import heal, poison
+from game.combat.combat import heal, poison
 from game.components import Name
 from game.ui.messages import add_message
 

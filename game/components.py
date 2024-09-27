@@ -11,9 +11,10 @@ import tcod.ecs.callbacks
 from numpy.typing import NDArray
 
 from game.action import Action
+from game.combat.combat_types import DamageResistance
 from game.constants import TraitActivation, TraitTarget
 from game.effect import Effect
-from game.tags import IsIn
+from game.tags import IsIn, IsItem, IsPlayer
 
 @attrs.define
 class AIBuilder:
@@ -98,8 +99,8 @@ HP: Final = ("HP", int)
 MaxHP: Final = ("MaxHP", int)
 """Maximum hit points."""
 
-Attack: Final = ("Attack", int)
-"""Damage stat for the entity."""
+Attack: Final = ("Attack", str)
+"""Damage stat for the entity. Represented by dice notation. Ex 1d4."""
 
 # STR: Final = ("STR", int)
 # """Strength stat for the entity."""
@@ -125,6 +126,8 @@ XP: Final = ("XP", int)
 RewardXP: Final = ("RewardXP", int)
 """Character experience reward."""
 
+Resistances: Final = ("Resistances", tuple[DamageResistance, ...])
+
 SpawnWeight: Final = ("SpawnWeight", tuple[tuple[int, int], ...])
 """Spawn rate as `((floor, weight), ...)`."""
 
@@ -137,6 +140,8 @@ StartingEffects: Final = ("StartingEffects", tuple[str, ...])
 RacialTraits: Final = ("RacialTraits", tuple[RacialTrait, ...])
 """Racial traits the entity has"""
 
+LootDropChance: Final = ("LootDropChance", float)
+"""Chance the entity has to drop loot on death."""
 
 
 
@@ -144,8 +149,8 @@ RacialTraits: Final = ("RacialTraits", tuple[RacialTrait, ...])
 EquipSlot: Final = ("EquipSlot", int)
 """Name of the equipment slot this item uses."""
 
-PowerBonus: Final = ("PowerBonus", int)
-"""Bonus attack power."""
+PowerBonus: Final = ("PowerBonus", str)
+"""Bonus attack power. In dice notation. Ex 1d4"""
 
 DefenseBonus: Final = ("DefenseBonus", int)
 """Bonus defense power."""
@@ -186,6 +191,36 @@ def on_trait_activation_changed(entity: tcod.ecs.Entity, old: TraitActivation | 
     else:
         pass
         #del entity.relation_tags_many[IsIn]
+
+
+@tcod.ecs.callbacks.register_component_changed(component=HP)
+def on_hp_changed(entity: tcod.ecs.Entity, old: int | None, new: int | None) -> None:
+    """Called when an entities position is changed."""
+    if old == new:
+        return
+    if isinstance(new, int) and new <=0:
+        # The actor with this HP has died
+        # Now check that it wasn't the player
+        if not IsPlayer in entity.tags:
+            # Now we need to get the drop chance percent
+            loot_pct = entity.components.get(LootDropChance, 0)
+            from random import Random
+            rng = entity.registry[None].components[Random]
+            if rng.random() > loot_pct:
+                return
+            # Then get the current floor #
+            map_ = entity.relation_tag[IsIn]
+            floor = map_.components[Floor]
+            # Then generate probabilities for items to spawn
+            # TODO - refactor code to fix imports
+            from game.world.procgen import get_template_weights
+            from game.items.item_tools import spawn_item
+            items = entity.registry.Q.all_of(components=[SpawnWeight], tags=[IsItem], depth=0)
+            item_weights = get_template_weights(items, floor)
+            # Then pick from probability list
+            item = rng.choices(**item_weights)[0]
+            # Then spawn the item at the location the entity died
+            spawn_item(item, entity.components[Position])
 
 # @tcod.ecs.callbacks.register_component_changed(component=EquipSlot)
 # def on_equipslot_changed(entity: tcod.ecs.Entity, old: EquipSlotType | None, new: EquipSlotType | None) -> None:

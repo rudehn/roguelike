@@ -24,10 +24,10 @@ from game.actions import ApplyItem, Bump, DropItem, PickupItem, TakeStairs
 from game.actor_tools import can_level_up, get_player_actor, level_up, required_xp_for_level, update_fov
 from game.components import AI, HP, XP, Defense, Level, MaxHP, Position, Attack, Effect
 from game.constants import CURSOR_Y_KEYS, DIRECTION_KEYS
-from game.combat import get_crit_chance, get_crit_damage_pct, get_defense, get_evade_chance, get_max_damage, get_min_damage
+from game.combat.combat import get_defense, get_evade_chance
 from game.entity_tools import get_desc
 from game.effect import remove_effect_from_entity
-from game.item_tools import get_inventory_keys
+from game.items.item_tools import get_inventory_keys
 from game.ui.messages import add_message, Message, MessageLog
 from game.ui.rendering import main_render, render_messages
 from game.state import State
@@ -416,7 +416,6 @@ class MessageHistoryScreen():
         main_render(g.world, console)
         console.rgb["fg"] //= 8
         console.rgb["bg"] //= 8
-        print("Rendering message histroy")
 
         log_console = tcod.Console(console.width - 6, console.height - 6)
 
@@ -455,6 +454,5 @@ class MessageHistoryScreen():
             case tcod.event.KeyDown(sym=KeySym.END):
                 self.cursor = self.log_length - 1  # Move directly to the last message
             case tcod.event.KeyDown():
-                print("Gottem")
                 return InGame()  # Any other key moves back to the main menu
         return self

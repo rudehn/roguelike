@@ -92,7 +92,7 @@ def spawn_actor(template: tcod.ecs.Entity, position: Position) -> tcod.ecs.Entit
 
 def required_xp_for_level(actor: tcod.ecs.Entity) -> int:
     """Return XP needed for the next level."""
-    return 200 + (actor.components.get(Level, 1) - 1) * 150
+    return 100 + (actor.components.get(Level, 1) - 1) * 150
 
 
 def can_level_up(actor: tcod.ecs.Entity) -> bool:

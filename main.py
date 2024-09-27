@@ -19,11 +19,11 @@ import g
 import game.actor_tools
 import game.world.procgen
 import game.states
+from game.constants import CONSOLE_SIZE
 import game.world.world_init
 from game.world.world_tools import load_world, save_world
 
 TITLE = "Nate's Roguelike"
-CONSOLE_SIZE = 80, 50
 SAVE_PATH = Path("saved.sav")
 
 ASSETS_DIR = Path(__file__) / "../assets"
@@ -163,11 +163,46 @@ Racial Traits:
 
 
 Implement Priority:
-- Racial traits; apply effects on hit vs being hit; update end of turn to only get traits that affect the owner;
-  update spawn_effect()
-- Come up with list of 10 racial traits
-- Come up with 3 total status effects
+- Apply adding racial traits on being hit
+- Figure out how to give extra parameters to effects like Bleed
+- Add zone spawner enemies
+- Zone ideas: poison, slow
 - And corresponding immunities
 
-TODO - on attack apply to enemy isn't working - player AI doesn't inherit from base AI
+more equipment, some that apply spike defense when hit
+bleed effect - target takes a percentage of the damage every turn
+TODO - how do we create effects like Bleed that need the context of how much damage was done?
+- Do we need to check attached effects for on hit/ on attack to see if we are weakened, etc?
+
+Create an "Attack" object, that specifies the attacker, defender, attack type, attack damage, etc
+Update the Effect class to use a on_hit, on_attack function?
+Add tiers of loot, or tiers of enemies. Higher tier enemies should have a higher chance of dropping loot
+Remove item spawning on the ground, should be loot from enemies
+Make a really strong enemy that's slow
+
+
+Replace effect spawner entity key with object()
+
+A player will want an increased loot drop chance if defeating an enemy that's beyond the threat level of the current level.player
+
+Increaes map size w/ camera
+
+Story - in a city, go into sewers, find dungeon, get teleported somewhere
+Add weapons that do different damage types
+
+
+TODO:
+- Create 20 levels of dungeon, add monsters in them and 20th floor should have a boss
+  - Boss should be able to use a double attack; Ex dragon has breath attack + claws
+- Then create stats system for STR, DEX, CON,
+- Then add chance to miss; accuracy + evade
+- Then update character screen
+- Then add screen to view enemy stats
+- Then add items & refactor item generation code
+  - Update attack code to factor in damage type from weapon
+- Then add monsters with items
+- Then add effects; spawn from damage type dealt
+
+- Add weapon str/dex requirements
+Energy to enter/leave a tile type
 """

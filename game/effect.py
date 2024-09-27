@@ -33,8 +33,6 @@ def add_effect_to_entity(entity: Entity, effect_template: Entity):
     """
     effect = spawn_effect(effect_template)
     effect.relation_tag[Affecting] = entity
-    from game.components import Name
-    print("applying ", effect.components[Name], "to", entity.components[Name])
     return effect
 
 def remove_effect_from_entity(entity: Entity, effect: Entity):

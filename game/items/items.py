@@ -13,10 +13,10 @@ from game.action_tools import do_player_action
 from game.components import Position, VisibleTiles
 from game.effect import Effect
 from game.entity_tools import get_name
-from game.item_tools import consume_item
+from game.items.item_tools import consume_item
 from game.ui.messages import add_message
 from game.spell import AreaOfEffect, EntitySpell, PositionSpell
-from game.tags import IsActor, IsIn
+from game.tags import IsActor, IsAlive, IsIn
 
 
 @attrs.define
@@ -42,7 +42,7 @@ class RandomTargetScroll:
         """Cast items spell at nearest target in range."""
         actor_pos = actor.components[Position]
         possible_targets = actor.registry.Q.all_of(
-            components=[Position], tags=[IsActor], relations=[(IsIn, actor_pos.map)]
+            components=[Position], tags=[IsActor, IsAlive], relations=[(IsIn, actor_pos.map)]
         ).get_entities() - {actor}
 
         visible_map = actor_pos.map.components[VisibleTiles]

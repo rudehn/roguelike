@@ -9,6 +9,7 @@ from random import Random
 import attrs
 import tcod.ecs  # noqa: TCH002
 
+from game.combat.combat_types import AttackData, DamageType, ResistanceLevel
 from game.components import (
     AI,
     HP,
@@ -21,11 +22,13 @@ from game.components import (
     MaxHP,
     Name,
     PowerBonus,
+    Resistances,
     RewardXP,
     TraitActivation,
     TraitTarget,
     Attack,
 )
+from game.dice import roll, roll_from_notation
 from game.effect import add_effect_to_entity
 from game.ui.messages import add_message
 from game.tags import Affecting, EquippedBy, IsAlive, IsBlocking, IsEffectSpawner, IsPlayer
@@ -81,6 +84,78 @@ class CombatAction:
     action_type: CombatActionTypes
 
 
+def perform_attack(attacker: tcod.ecs.Entity, defender: tcod.ecs.Entity, attack: AttackData):
+    rng = attacker.registry[None].components[Random]
+
+    # First roll a d20 to see if we auto crit/miss
+    # Crit is an auto-hit, allowing lower level monsters to still provide a threat
+    # to the player
+    to_hit = roll(1, 20)
+    is_crit = False
+    attack_color = "player_atk" if IsPlayer in attacker.tags else "enemy_atk"
+    attack_desc = f"""{attacker.components[Name]} attacks {defender.components[Name]}"""
+
+    if to_hit == 1:
+        add_message(attacker.registry, f"{attack_desc} but missed.", attack_color)
+        return
+
+    # TODO roll 2d20, multiply then multiply by accuracy. Compare to 2d20, multiply then multiply by evasion
+    if to_hit == 20:
+        is_crit = True
+
+    # Crit doubles the damage
+    damage = attack.damage_amount * 2 if is_crit else attack.damage_amount
+    resistance = get_resistance_level(defender, attack.damage_type)
+    match resistance:
+        case ResistanceLevel.WEAK:
+            damage *= 1.5 # 50% more damage
+        case ResistanceLevel.MODERATE:
+            damage *= .66 # 33% less damage
+        case ResistanceLevel.HIGH:
+            damage *= .33 # 66% less damage
+        case ResistanceLevel.IMMUNE:
+            add_message(attacker.registry, f"{attack_desc} but it is immune to this damage!", attack_color)
+            return
+        case ResistanceLevel.HEALED:
+            healed_amount = heal(defender, int(damage * .33)) # Heal for 33% of damage
+            add_message(attacker.registry, f"{attack_desc} but it healed for {healed_amount} hp!", attack_color)
+            return
+        case ResistanceLevel.NONE:
+            pass
+
+    # Calculate armor value, cap at 75% damage mitigation, will at least apply 1 damage
+    defense = get_defense(defender)
+    damage = int(max(1, damage*.25, damage-defense))
+    if is_crit:
+        add_message(attacker.registry, f"{attack_desc} and crits for {damage} hit points!", attack_color)
+    else:
+        add_message(attacker.registry, f"{attack_desc} for {damage} hit points.", attack_color)
+
+    apply_damage(defender, damage, blame=attacker)
+
+    # TODO - miss chance accuracy/evade
+    # TODO - inflict status type based on damage type; modify chance by resistance
+    # TODO - how do we determine status power? Assign a tier to creatures? Roll to hit, then roll for severity?
+    # - function to look up entities that inflict that status type; need to update entity to include type?
+    # TODO - damage should be a dice roll
+    # - how to determine player base damage w/ no weapon?
+    # How to determine if weapon applies a status effect?
+
+
+
+
+def get_resistance_level(actor: tcod.ecs.Entity, damage_type: DamageType) -> ResistanceLevel:
+    resistances = actor.components.get(Resistances, ())
+    resistance_level = ResistanceLevel.NONE
+
+    # Now check if we have a resistance to the damage type specified
+    for res in resistances:
+        if res.damage_type == damage_type:
+            resistance_level = res.resistance
+            break
+
+    return resistance_level
+
 def recalculate_stats(actor: tcod.ecs.Entity):
     pass
     # TODO - need to keep track of base stats + modifiers to base stats
@@ -104,63 +179,16 @@ def get_evade_chance(actor: tcod.ecs.Entity) -> float:
     # evade = min(.75, (dex / 2) / 100)
     return 0
 
-def get_crit_chance(actor: tcod.ecs.Entity) -> float:
-    """
-    Crit chance percentage is calculated as follows
-
-    crit_chance = min(.75, (DEX + (STR / 4)) / 100)
-
-    with DEX being the primary stat
-    """
-    # dex = actor.components.get(DEX, 0)
-    # str_ = actor.components.get(STR, 0)
-    # crit_chance = min(.75, (dex + (str_ / 4) ) / 100)
-    return 0
-
-def get_crit_damage_pct(actor: tcod.ecs.Entity) -> float:
-    """
-    Crit damage percentage is calculated as follows
-
-    crit_damage = (DEX + STR) / 100
-
-    with DEX and STR contributing equally
-    """
-    # dex = actor.components.get(DEX, 0)
-    # str_ = actor.components.get(STR, 0)
-    # crit_damage = 1 + ((dex + str_) / 100)
-    return 1
-
-def get_min_damage(actor: tcod.ecs.Entity) -> int:
-    """
-    Min damage is calculated as follows
-    power = (STR // 2) + sum(equipment_bonus)
-    """
-
-    # min_damage = int(actor.components.get(STR, 0) // 2)
-
-    # for e in actor.registry.Q.all_of(components=[PowerBonus], relations=[(Affecting, actor)]):
-    #     min_damage += e.components[PowerBonus]
-    return 0
-
-def get_max_damage(actor: tcod.ecs.Entity) -> int:
-    """
-    Max damage is calculated as follows
-    power = STR + sum(equipment_bonus)
-    """
-
-    # max_damage = actor.components.get(STR, 0)
-
-    # for e in actor.registry.Q.all_of(components=[PowerBonus], relations=[(Affecting, actor)]):
-    #     max_damage += e.components[PowerBonus]
-    return 0
-
 def get_attack(actor: tcod.ecs.Entity) -> int:
     """
     Get an entities attack power.
     """
-    attack_power = actor.components.get(Attack, 0)
+    attack_power = roll_from_notation(actor.components.get(Attack, "0d1"))
+
+    # TODO - should weapons stack on top of base damage?
+    # TODO - weapons should roll dice too
     for e in actor.registry.Q.all_of(components=[PowerBonus], relations=[(Affecting, actor)]):
-        attack_power += e.components[PowerBonus]
+        attack_power += roll_from_notation(e.components[PowerBonus])
     return attack_power
 
 
@@ -172,44 +200,29 @@ def get_defense(actor: tcod.ecs.Entity) -> int:
     return defense_power
 
 
-def melee_damage(attacker: tcod.ecs.Entity, target: tcod.ecs.Entity) -> CombatAction:
+def melee_damage(attacker: tcod.ecs.Entity, target: tcod.ecs.Entity):
     """Get melee damage for attacking target."""
     # Calculate if we hit
-    rng = attacker.registry[None].components[Random]
-    if rng.random() <= get_evade_chance(target):
-        return CombatAction(damage=0, action_type=CombatActionTypes.MISSED)
-
     attack = get_attack(attacker)
-    defense = get_defense(target)
-    action_type = CombatActionTypes.ATTACK
-    # Check for a crit
-    if rng.random() <= get_crit_chance(attacker):
-        attack = int(attack * get_crit_damage_pct(attacker))
-        action_type = CombatActionTypes.CRIT
+    perform_attack(attacker, target, AttackData(DamageType.PHYSICAL, attack))
 
-    damage = max(0, attack - defense)
-    if damage == 0:
-        action_type = CombatActionTypes.BLOCKED
-    else:
-        # This grabs all of the attacker's equipment that apply effects
-        for effect in attacker.registry.Q.all_of(components=[EffectsApplied], relations=[(EquippedBy, attacker)]):
-            equip_effects = effect.components[EffectsApplied]
-            for equip_effect in equip_effects:
-                add_effect_to_entity(target, equip_effect)
+    # # This grabs all of the attacker's equipment that apply effects
+    # for effect in attacker.registry.Q.all_of(components=[EffectsApplied], relations=[(EquippedBy, attacker)]):
+    #     equip_effects = effect.components[EffectsApplied]
+    #     for equip_effect in equip_effects:
+    #         add_effect_to_entity(target, equip_effect)
 
-        # This grabs all the racial traits that spawn an effect on attack
-        for effect_spawner in attacker.registry.Q.all_of(components=[TraitActivation, TraitTarget], tags=[IsEffectSpawner, TraitActivation.ON_ATTACK], relations=[(Affecting, attacker)]):
-            target_type = effect_spawner.components[TraitTarget]
-            effects = effect_spawner.components[EffectsApplied]
-            for effect in effects:
-                match target_type:
-                    case TraitTarget.SELF:
-                        add_effect_to_entity(attacker, effect)
+    # # This grabs all the racial traits that spawn an effect on attack
+    # for effect_spawner in attacker.registry.Q.all_of(components=[TraitActivation, TraitTarget], tags=[IsEffectSpawner, TraitActivation.ON_ATTACK], relations=[(Affecting, attacker)]):
+    #     target_type = effect_spawner.components[TraitTarget]
+    #     effects = effect_spawner.components[EffectsApplied]
+    #     for effect in effects:
+    #         match target_type:
+    #             case TraitTarget.SELF:
+    #                 add_effect_to_entity(attacker, effect)
 
-                    case TraitTarget.ENEMY:
-                        add_effect_to_entity(target, effect)
-
-    return CombatAction(damage=damage, action_type=action_type)
+    #             case TraitTarget.ENEMY:
+    #                 add_effect_to_entity(target, effect)
 
 def apply_damage(entity: tcod.ecs.Entity, damage: int, blame: tcod.ecs.Entity) -> None:
     """Deal damage to an entity."""

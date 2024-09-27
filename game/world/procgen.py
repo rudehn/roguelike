@@ -16,8 +16,9 @@ from numpy.typing import NDArray  # noqa: TCH002
 
 import game.world.map_tools
 from game.actor_tools import spawn_actor
+from game.constants import MAP_SIZE
 from game.components import AI, Floor, Graphic, Position, SpawnWeight, Tiles
-from game.item_tools import spawn_item
+from game.items.item_tools import spawn_item
 from game.map import MapKey
 from game.tags import IsActor, IsItem
 from game.world.tiles import TILE_NAMES
@@ -34,6 +35,11 @@ max_monsters_by_floor = (
     (6, 5),
 )
 """(floor, max_monsters)"""
+
+floor_bosses = {
+    5: "troll",
+    10: "dragon",
+}
 
 
 def get_value_for_floor(floor_table: Sequence[tuple[int, int]], floor: int) -> int:
@@ -229,11 +235,18 @@ def generate_dungeon(  # noqa: C901
     if floor > 1:
         up_stairs.components[MapKey] = Tombs(level=floor - 1)
 
+    stairs_position =  next(rooms[-1].iter_random_spaces(rng, map_))
     down_stairs = world[object()]
-    down_stairs.components[Position] = next(rooms[-1].iter_random_spaces(rng, map_))
+    down_stairs.components[Position] = stairs_position
     down_stairs.components[Graphic] = Graphic(ord(">"), (255, 255, 255))
     down_stairs.tags.add("DownStairs")
     down_stairs.components[MapKey] = Tombs(level=floor + 1)
+
+    # Check if we have a boss on this level
+    boss_name = floor_bosses.get(floor)
+    if boss_name:
+        # Assign the specified boss type to guard the stairs
+        spawn_actor(world[boss_name], stairs_position)
 
     # Skip the rooms with stairs
     for room in rooms[1:-1]:
@@ -263,4 +276,4 @@ class Tombs:
 
     def generate(self, world: tcod.ecs.Registry) -> tcod.ecs.Entity:
         """Generate the tombs."""
-        return generate_dungeon(world=world, shape=(45, 80), floor=self.level)
+        return generate_dungeon(world=world, shape=MAP_SIZE, floor=self.level)

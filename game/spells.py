@@ -10,8 +10,8 @@ from numpy.typing import NDArray  # noqa: TCH002
 from tcod.ecs import Entity  # noqa: TCH002
 
 from game.action import ActionResult, Success, Impossible
-from game.actions import ConfusedAI
-from game.combat import apply_damage
+from game.combat.ai import ConfusedAI
+from game.combat.combat import apply_damage
 from game.components import AI, HP, MapShape, MemoryTiles, Name, Position, Tiles, VisibleTiles
 from game.ui.messages import add_message
 from game.tags import IsActor, IsIn
