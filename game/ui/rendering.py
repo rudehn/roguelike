@@ -99,15 +99,9 @@ def main_render(  # noqa: C901
 
     rendered_priority: dict[Position, int] = {}
     for entity in world.Q.all_of(components=[Position, Graphic], relations=[(IsIn, map_)]):
-        print("Processing", entity.components.get(Name, "unknown"))
-        print("camera", camera_ij)
         pos = entity.components[Position]
         e_screen_y, e_screen_x = pos.ij[0] - camera_ij[0], pos.ij[1] - camera_ij[1]
         translated_pos = Position(e_screen_x, e_screen_y, map_)
-        print("Pos", pos)
-        print("console width/height", console.width, console.height)
-        print("translated pos",translated_pos)
-        print("Visible", visible.shape)
         if not (0 <= translated_pos.x < console.width and 0 <= translated_pos.y < console.height):
             continue  # Out of bounds
         if visible[translated_pos.ij] == (IsGhost in entity.tags):
@@ -123,7 +117,6 @@ def main_render(  # noqa: C901
             continue  # Do not render over a more important entity
         rendered_priority[pos] = render_order
         graphic = entity.components[Graphic]
-        print("Rendering")
         console.rgb[["ch", "fg"]][translated_pos.ij] = graphic.ch, graphic.fg
 
     console.rgb["fg"][console_slices][not_visible] //= 2

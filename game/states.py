@@ -13,16 +13,16 @@ import tcod.event
 from numpy.typing import NDArray  # noqa: TCH002
 from tcod import libtcodpy
 from tcod.ecs import Entity  # noqa: TCH002
-from tcod.event import KeySym, Modifier, Scancode
+from tcod.event import KeySym, MouseButton
 
 import g
 import game.color
 import game.world.world_init
 from game.action import Action, Impossible, Poll, Success  # noqa: TCH001
 from game.action_tools import do_player_action, get_entity_energy, get_entity_speed, update_entity_energy
-from game.actions import ApplyItem, Bump, DropItem, PickupItem, TakeStairs
+from game.actions import ApplyItem, Bump, DropItem, Melee, Move, PickupItem, TakeStairs
 from game.actor_tools import can_level_up, get_player_actor, level_up, required_xp_for_level, update_fov
-from game.components import AI, HP, XP, Defense, Level, MaxHP, Position, Attack, Effect
+from game.components import AI, AttackSpeed, DelayedAction, HP, XP, Defense, Level, MaxHP, MoveSpeed, Position, Attack, Effect
 from game.constants import CURSOR_Y_KEYS, DIRECTION_KEYS
 from game.combat.combat import get_defense, get_evade_chance
 from game.entity_tools import get_desc
@@ -33,33 +33,124 @@ from game.ui.rendering import main_render, render_messages
 from game.state import State
 from game.tags import IsEffect, IsPlayer, IsIn, Affecting
 
+def get_adjusted_action_cost(entity: Entity, action: Action):
+    print("In adjust function")
+    cost = action.cost
+    if isinstance(action, Move):
+        print("matching move")
+        move_speed = entity.components.get(MoveSpeed, 1.0)
+        cost = int(cost / move_speed)  # 0.5 speed is a 2x increase, 2 speed is a 50% decrease
+    elif isinstance(action, Melee):
+        print("matching melee")
+        attack_speed = entity.components.get(AttackSpeed, 1.0)
+        cost = int(cost / attack_speed)  # 0.5 speed is a 2x increase, 2 speed is a 50% decrease
+    return cost
 
-def process_entity_turn(entity: tcod.ecs.Entity, action: Action):
+def process_player_turn(entity: Entity):
+    delayed_action = entity.components.get(DelayedAction)
+    if delayed_action:
+        print("In game, got delayed action")
+        # Try to continue with a previous action
+        action = delayed_action.action
+    else:
+        # Find a new action to perform
+        # print("No delayed action")
+        action: Action | None = None
+        for key, direction in DIRECTION_KEYS.items():
+            if g.inputs.is_key_pressed(key):
+                action = Bump(direction)(entity)
+        if g.inputs.is_key_just_pressed(KeySym.g):
+            action = PickupItem()
+        elif g.inputs.is_key_pressed(KeySym.PERIOD) and g.inputs.is_key_pressed(KeySym.LSHIFT):
+            action = TakeStairs("down")
+        elif g.inputs.is_key_pressed(KeySym.COMMA) and g.inputs.is_key_pressed(KeySym.LSHIFT):
+            action = TakeStairs("up")
+
+    if not action:
+        return True # Still player's turn
+
+
     available_energy = get_entity_energy(entity)
-    # Entity has enough energy to perform this action
-    while available_energy >= action.cost:
-        result = action(entity)
-        match result:
-            case Success(message=message):
-                # For now, take energy away for impossible actions
-                update_entity_energy(entity, -action.cost)
-                available_energy -= action.cost
-            case Impossible(reason=reason):
-                update_entity_energy(entity, -action.cost)
-                available_energy -= action.cost
+    performed_action = False
+    adjusted_cost = get_adjusted_action_cost(entity, action)
+
+    if available_energy >= adjusted_cost:
+        action(entity)
+        performed_action = True
+        update_entity_energy(entity, -adjusted_cost)
+        available_energy -= adjusted_cost
+
+    # If we performed an action this turn, remove any existing delayedActions on the entity
+    if performed_action:
+        entity.components.pop(DelayedAction, None)
+        if available_energy > 0:
+            # We want to try and finish our turn with another action, return control
+            return True
+    elif available_energy >= 0:
+        # We didn't perform an action, but still have energy so we started a new action, but didn't finish it
+        entity.components[DelayedAction] = DelayedAction(action)
+
+    # After all actions are taken, start adding our energy back
     update_entity_energy(entity, get_entity_speed(entity))
 
+
+    # Now do all effects on the entity
     for e in entity.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, entity)]):
         effect = e.components[Effect]
         consumed = effect.affect(entity)
         if consumed:
             remove_effect_from_entity(entity, e)
 
+
+    return False # Player's turn is over
+
+def process_enemy_turn(entity: Entity):
+    ai = entity.components[AI]
+    available_energy = get_entity_energy(entity)
+    performed_action = False
+
+    # First check if the entity has an ongoing action
+    # delayed_action = entity.components.get(DelayedAction)
+    # if delayed_action:
+    #     action = delayed_action.action
+    # else:
+    action = ai.get_action(entity)
+
+    adjusted_cost = get_adjusted_action_cost(entity, action)
+
+    while available_energy >= adjusted_cost:
+        action(entity)
+        performed_action = True
+        update_entity_energy(entity, -adjusted_cost)
+        available_energy -= adjusted_cost
+
+        # Get new action and cost
+        action = ai.get_action(entity)
+        adjusted_cost = get_adjusted_action_cost(entity, action)
+
+    # After all actions are taken, start adding our energy back
+    update_entity_energy(entity, get_entity_speed(entity))
+
+    # If we performed an action this turn, remove any existing delayedActions on the entity
+    # if performed_action:
+    #     entity.components.pop(DelayedAction, None)
+    # elif available_energy >= 0:
+    #     # We still have energy left over this turn, so we started a new action, but didn't finish it
+    #     entity.components[DelayedAction] = DelayedAction(action)
+
+    # Now do all effects on the entity
+    for e in entity.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, entity)]):
+        effect = e.components[Effect]
+        consumed = effect.affect(entity)
+        if consumed:
+            remove_effect_from_entity(entity, e)
+
+
 @attrs.define
 class InGame(State):
     """In-game main player control state."""
 
-    def on_event(self, event: tcod.event.Event) -> State:  # noqa: C901, PLR0911
+    def update(self) -> State:  # noqa: C901, PLR0911
         """
         Handle basic events and movement.
 
@@ -72,52 +163,46 @@ class InGame(State):
         """
         player = get_player_actor(g.world)
         # First handle if we have any state changes
-        match event:
-            case tcod.event.KeyDown(sym=KeySym.ESCAPE):
-                return MainMenu()
-            case tcod.event.KeyDown(sym=KeySym.c):
-                return CharacterScreen()
-            case tcod.event.KeyDown(sym=KeySym.v):
-                messages: Reversible[Message] = g.world[None].components[MessageLog]
-                return MessageHistoryScreen(log_length=len(messages), cursor=len(messages) - 1)
-            case tcod.event.KeyDown(sym=KeySym.i):
-                return ItemSelect.player_verb(player, "use", ApplyItem)
-            case tcod.event.KeyDown(sym=KeySym.d):
-                return ItemSelect.player_verb(player, "drop", DropItem)
-            case tcod.event.KeyDown(sym=KeySym.SLASH):
-                return PositionSelect.init_look()
+
+        if g.inputs.is_key_just_pressed(KeySym.ESCAPE):
+            return MainMenu()
+        elif g.inputs.is_key_just_pressed(KeySym.c):
+            return CharacterScreen()
+        elif g.inputs.is_key_just_pressed(KeySym.v):
+            messages: Reversible[Message] = g.world[None].components[MessageLog]
+            return MessageHistoryScreen(log_length=len(messages), cursor=len(messages) - 1)
+        elif g.inputs.is_key_just_pressed(KeySym.i):
+            return ItemSelect.player_verb(player, "use", ApplyItem)
+        elif g.inputs.is_key_just_pressed(KeySym.d):
+            return ItemSelect.player_verb(player, "drop", DropItem)
+        elif g.inputs.is_key_just_pressed(KeySym.SLASH):
+            return PositionSelect.init_look()
 
         # Can't handle actions on player death
         if player.components[HP] <= 0:
             return self
 
-        match event:
-            case tcod.event.KeyDown(sym=KeySym.g):
-                player_action = PickupItem()
-            case tcod.event.KeyDown(sym=KeySym.PERIOD, mod=mod) if mod & Modifier.SHIFT:
-                player_action = TakeStairs("down")
-            case tcod.event.KeyDown(sym=KeySym.COMMA, mod=mod) if mod & Modifier.SHIFT:
-                player_action = TakeStairs("up")
-            case tcod.event.KeyDown(scancode=Scancode.NONUSBACKSLASH, mod=mod) if mod & Modifier.SHIFT:
-                player_action = TakeStairs("down")
-            case tcod.event.KeyDown(scancode=Scancode.NONUSBACKSLASH, mod=mod) if not mod & Modifier.SHIFT:
-                player_action = TakeStairs("up")
-            case tcod.event.KeyDown(sym=sym) if sym in DIRECTION_KEYS:
-                player_action = Bump(DIRECTION_KEYS[sym])
-            case _:
-                return self  # Didn't get any expected input
+            # if not player_action:
+            #     return self # Don't have a continued action & no user input to specify next action
 
-        process_entity_turn(player, player_action)
+        # TODO - this is messy, clean up the logic
+        # If a player didn't have an action to perform, or had the energy to perform multiple actions
+        # Then it's still the player's turn to process, so kick control back up to main.py
+        still_players_turn = process_player_turn(player)
+        if still_players_turn:
+            update_fov(player)
+            return self
 
         # Update all the enemies in the same map as the player
         for entity in player.registry.Q.all_of(components=[AI], relations=[(IsIn, player.relation_tag[IsIn])]):
-            action = entity.components[AI]
-            process_entity_turn(entity, action)
+            process_enemy_turn(entity)
 
+        print("Updating fov")
         update_fov(player) # Update the FOV after every action so we can see fast enemies move before attacking
         if can_level_up(player):
             return LevelUp()
 
+        print("Final return")
         # Stay in the game
         return self
 
@@ -146,13 +231,13 @@ class ItemSelect(State):
             cancel_callback=InGame,
         )
 
-    def on_event(self, event: tcod.event.Event) -> State:
+    def update(self) -> State:
         """Handle item selection."""
-        match event:
-            case tcod.event.KeyDown(sym=sym) if sym in self.items:
-                return self.pick_callback(self.items[sym])
-            case tcod.event.KeyDown(sym=KeySym.ESCAPE) if self.cancel_callback is not None:
-                return self.cancel_callback()
+        for key, entity in self.items.items():
+            if g.inputs.is_key_just_pressed(key):
+                return self.pick_callback(entity)
+        if g.inputs.is_key_just_pressed(KeySym.ESCAPE) and self.cancel_callback is not None:
+            return self.cancel_callback()
         return self
 
     def on_draw(self, console: tcod.console.Console) -> None:
@@ -200,28 +285,21 @@ class PositionSelect:
         g.world["cursor"].components[Position] = player.components[Position]
         return cls(pick_callback=lambda _: InGame(), cancel_callback=InGame)
 
-    def on_event(self, event: tcod.event.Event) -> State:
+    def update(self) -> State:
         """Handle cursor movement and selection."""
-        match event:
-            case tcod.event.KeyDown(sym=sym) if sym in DIRECTION_KEYS:
-                g.world["cursor"].components[Position] += DIRECTION_KEYS[sym]
-            case (
-                tcod.event.KeyDown(sym=KeySym.RETURN)
-                | tcod.event.KeyDown(sym=KeySym.KP_ENTER)
-                | tcod.event.MouseButtonDown(button=tcod.event.MouseButton.LEFT)
-            ):
-                try:
-                    return self.pick_callback(g.world["cursor"].components[Position])
-                finally:
-                    g.world["cursor"].clear()
-            case tcod.event.MouseMotion(position=position):
-                g.world["cursor"].components[Position] = g.world["cursor"].components[Position].replace(*position)
-            case (
-                tcod.event.KeyDown(sym=KeySym.ESCAPE)
-                | tcod.event.MouseButtonDown(button=tcod.event.MouseButton.RIGHT)
-            ) if self.cancel_callback is not None:
+        for key, direction in DIRECTION_KEYS.items():
+            if g.inputs.is_key_just_pressed(key):
+                g.world["cursor"].components[Position] += direction
+        if g.inputs.is_key_just_pressed(KeySym.RETURN) or g.inputs.is_key_just_pressed(KeySym.KP_ENTER) or g.inputs.is_mouse_pressed(MouseButton.LEFT):
+            try:
+                return self.pick_callback(g.world["cursor"].components[Position])
+            finally:
                 g.world["cursor"].clear()
-                return self.cancel_callback()
+        if g.inputs.mouse_moved:
+            g.world["cursor"].components[Position] = g.world["cursor"].components[Position].replace(*g.inputs.cursor_location)
+        if self.cancel_callback is not None and (g.inputs.is_key_just_pressed(KeySym.ESCAPE) or g.inputs.is_mouse_pressed(MouseButton.RIGHT)):
+            g.world["cursor"].clear()
+            return self.cancel_callback()
         return self
 
     def on_draw(self, console: tcod.console.Console) -> None:
@@ -234,17 +312,16 @@ class PositionSelect:
 class MainMenu:
     """Handle the main menu rendering and input."""
 
-    def on_event(self, event: tcod.event.Event) -> State:
+    def update(self) -> State:
         """Handle menu keys."""
-        match event:
-            case tcod.event.KeyDown(sym=KeySym.q):
-                raise SystemExit
-            case tcod.event.KeyDown(sym=KeySym.c | KeySym.ESCAPE):
-                if hasattr(g, "world"):
-                    return InGame()
-            case tcod.event.KeyDown(sym=KeySym.n):
-                g.world = game.world.world_init.new_world()
+        if g.inputs.is_key_just_pressed(KeySym.q):
+            raise SystemExit
+        elif g.inputs.is_key_just_pressed(KeySym.c) or g.inputs.is_key_just_pressed(KeySym.ESCAPE):
+            if hasattr(g, "world"):
                 return InGame()
+        elif g.inputs.is_key_just_pressed(KeySym.n):
+            g.world = game.world.world_init.new_world()
+            return InGame()
 
         return self
 
@@ -326,27 +403,26 @@ class LevelUp:
             string=f"c) Defense (+1 defense, from {player.components[Defense]})",
         )
 
-    def on_event(self, event: tcod.event.Event) -> State:
+    def update(self) -> State:
         """Apply level up mechanics."""
         player = get_player_actor(g.world)
 
-        match event:
-            case tcod.event.KeyDown(sym=KeySym.a):
-                player.components[MaxHP] += 20
-                player.components[HP] += 20
-                level_up(player)
-                add_message(g.world, "Your health improves!")
-                return InGame()
-            case tcod.event.KeyDown(sym=KeySym.b):
-                player.components[Attack] += 1
-                level_up(player)
-                add_message(g.world, "You feel stronger!")
-                return InGame()
-            case tcod.event.KeyDown(sym=KeySym.c):
-                player.components[Defense] += 1
-                level_up(player)
-                add_message(g.world, "Your movements are getting swifter!")
-                return InGame()
+        if g.inputs.is_key_just_pressed(KeySym.a):
+            player.components[MaxHP] += 20
+            player.components[HP] += 20
+            level_up(player)
+            add_message(g.world, "Your health improves!")
+            return InGame()
+        elif g.inputs.is_key_just_pressed(KeySym.b):
+            player.components[Attack] += 1
+            level_up(player)
+            add_message(g.world, "You feel stronger!")
+            return InGame()
+        elif g.inputs.is_key_just_pressed(KeySym.c):
+            player.components[Defense] += 1
+            level_up(player)
+            add_message(g.world, "Your movements are getting swifter!")
+            return InGame()
 
         return self
 
@@ -398,11 +474,10 @@ class CharacterScreen:
         # console.print(x=x + 1, y=y + 9, string=f"Crit Mult: {get_crit_damage_pct(player)}")
         # console.print(x=x + 1, y=y + 10, string=f"Evade Chance: {get_evade_chance(player):.0%}")
 
-    def on_event(self, event: tcod.event.Event) -> State:
+    def update(self) -> State:
         """Exit state on any key."""
-        match event:
-            case tcod.event.KeyDown():
-                return InGame()
+        if g.inputs.is_any_key_just_pressed():
+            return InGame()
         return self
 
 
@@ -435,11 +510,10 @@ class MessageHistoryScreen():
         message_console.blit(log_console, 1, 1)
         log_console.blit(console, 3, 3)
 
-    def on_event(self, event: tcod.event.Event) -> State:
+    def update(self) -> State:
         """Exit state on any key."""
-        match event:
-            case tcod.event.KeyDown(sym=sym) if sym in CURSOR_Y_KEYS :
-                adjust = CURSOR_Y_KEYS[sym]
+        for key, adjust in CURSOR_Y_KEYS.items():
+            if g.inputs.is_key_just_pressed(key):
                 if adjust < 0 and self.cursor == 0:
                     # Only move from the top to the bottom when you're on the edge.
                     self.cursor = self.log_length - 1
@@ -449,10 +523,10 @@ class MessageHistoryScreen():
                 else:
                     # Otherwise move while staying clamped to the bounds of the history log.
                     self.cursor = max(0, min(self.cursor + adjust, self.log_length - 1))
-            case tcod.event.KeyDown(sym=KeySym.HOME):
-                self.cursor = 0 # Move directly to the top message
-            case tcod.event.KeyDown(sym=KeySym.END):
-                self.cursor = self.log_length - 1  # Move directly to the last message
-            case tcod.event.KeyDown():
-                return InGame()  # Any other key moves back to the main menu
+        if g.inputs.is_key_just_pressed(KeySym.HOME):
+            self.cursor = 0 # Move directly to the top message
+        elif g.inputs.is_key_just_pressed(KeySym.END):
+            self.cursor = self.log_length - 1  # Move directly to the last message
+        elif g.inputs.is_any_key_just_pressed():
+            return InGame()  # Any other key moves back to the main menu
         return self

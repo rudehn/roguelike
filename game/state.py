@@ -13,8 +13,8 @@ class State(Protocol):
 
     __slots__ = ()
 
-    def on_event(self, event: tcod.event.Event, /) -> State:
-        """Handle events."""
+    def update(self) -> State:
+        """Handle any actions & events."""
         ...
 
     def on_draw(self, console: tcod.console.Console, /) -> None:

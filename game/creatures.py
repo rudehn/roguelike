@@ -6,9 +6,9 @@ from typing import Callable, Final, Tuple
 import attrs
 
 from game.action import Action
-from game.combat.ai import BaseAI, HostileAI, SpawnerAI
+from game.combat.ai import HostileAI, SpawnerAI
 from game.combat.combat_types import DamageType, DamageResistance, ResistanceLevel
-from game.components import RacialTrait
+from game.components import BaseAI, RacialTrait
 from game.constants import TraitActivation, TraitTarget
 from game.effect import Effect
 from game.effects import Regeneration
@@ -25,7 +25,9 @@ class Creature:
     attack: str # Dice notation; Ex. 1d4, 2d10, etc
     defense: int
     xp: int
-    speed: int = attrs.field(kw_only=True, default=100)
+    speed: int = attrs.field(kw_only=True, default=10) # How quickly energy replenishes for this entity
+    attack_speed: float = attrs.field(kw_only=True, default=1) # Speed multiplier for attack action cost. 0.5 is 2x cost
+    move_speed: float = attrs.field(kw_only=True, default=1) # Speed multiplier for move action cost. 0.5 is 2x cost
     loot_drop_pct: float = attrs.field(kw_only=True, default=.25)
     spawn_weight: Tuple[Tuple[int, int], ...] = attrs.field(kw_only=True, default=None)
     damage_type: DamageType = attrs.field(kw_only=True, default=DamageType.PHYSICAL)
@@ -37,7 +39,7 @@ class Creature:
 
 Creatures: Final = (
     Creature("player", ord("@"), (255, 255, 255), 20, "1d4", 0, 0, ai=None, loot_drop_pct=0),
-    Creature("rat", ord("r"), (63, 200, 63), 4, "1d2 ", 0, 5, spawn_weight=((1, 50),(3, 25), (5, 0))),
+    Creature("rat", ord("r"), (63, 200, 63), 4, "1d2 ", 0, 5, move_speed=2, attack_speed=2, spawn_weight=((1, 50),(3, 25), (5, 0))),
     Creature("orc", ord("o"), (63, 127, 63), 6, "1d4", 0, 10, spawn_weight=((1, 50),(3, 70), (5, 90), (8, 40))),
     Creature("rat_nest", ord("S"), (63, 127, 63), 10, "0d1", 0, 12, spawn_weight=((2, 20), (3, 40), (4, 60), (5, 80), (6, 60), (8, 30), (10, 0)),
              ai=AIBuilder(SpawnerAI, {"spawned_entity_name": "rat", "spawn_rate": 4})),

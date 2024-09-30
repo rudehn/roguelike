@@ -16,9 +16,8 @@ import tcod.event
 import tcod.tileset
 
 import g
-import game.actor_tools
-import game.world.procgen
 import game.states
+import game.input_manager
 from game.constants import CONSOLE_SIZE
 import game.world.world_init
 from game.world.world_tools import load_world, save_world
@@ -34,11 +33,14 @@ logger = logging.getLogger(__name__)
 
 def main() -> NoReturn:  # noqa: C901
     """Main entry point."""
+    print("In main")
     logging.basicConfig(level="DEBUG")
     tileset = tcod.tileset.load_tilesheet(TILESET, 16, 16, tcod.tileset.CHARMAP_CP437)
     g.console = tcod.console.Console(*CONSOLE_SIZE)
 
     g.state = game.states.MainMenu()
+    g.inputs = game.input_manager.InputManager()
+    print("After inputs")
 
     if SAVE_PATH.exists():
         try:
@@ -52,14 +54,16 @@ def main() -> NoReturn:  # noqa: C901
                 g.console.clear()
                 g.state.on_draw(g.console)
                 g.context.present(g.console)
+                g.inputs.clear()
 
-                for event in tcod.event.wait():
+                for event in tcod.event.get():
                     event = g.context.convert_event(event)  # noqa: PLW2901
                     match event:
                         case tcod.event.Quit():
                             raise SystemExit
                         case tcod.event.MouseMotion(position=position):
                             g.cursor_location = position
+                            g.inputs.mouse_moved = True
                         case tcod.event.WindowEvent(type="WindowLeave"):
                             g.cursor_location = None
                         case tcod.event.KeyDown(sym=tcod.event.KeySym.PRINTSCREEN):
@@ -69,10 +73,48 @@ def main() -> NoReturn:  # noqa: C901
                                 screenshots / f"tt2024.{datetime.now():%Y-%m-%d-%H-%M-%S-%f}.png",  # noqa: DTZ005
                                 tileset.render(g.console),
                             )
-                    try:
-                        g.state = g.state.on_event(event)
-                    except Exception:
-                        logger.exception("Caught error from on_event")
+                        case tcod.event.KeyDown(repeat=repeat):
+                            print("Key down")
+                            print(event.sym)
+                            print(event.sdl_event)
+                            print(event.scancode)
+                            print("repeat", repeat)
+                            if not repeat:
+                                g.inputs.add_key_just_pressed(event.sym)
+
+                try:
+                    """
+                    1. Player takes their turn
+                        1. Am I in the middle of an existing action?
+                            1. Yes - Skip to 1.3
+                            2. No - Continue to 1.2
+                        2. Get event from input. Is there an event?
+                            1. Yes. Continue to 1.3
+                            2. No - Skip to 4
+                        3. Do I have energy to perform event?
+                            1. Yes - Perform the event
+                                1. Do I still have energy?
+                                    1. Yes - Skip to 4 to process my turn again
+                                    2. No - Skip to 1.3.2
+                            2. No - Mark as desired action, Finish my turn, replenish energy
+                    2. Enemy takes their turn
+                        1. Am I in the middle of an existing action?
+                            1. Yes - Skip to 2.3
+                            2. No - Continue to 2.3
+                        2. Get my event from AI
+                        3. Do I have energy to perform event?
+                            1. Yes - Perform the event
+                                1. Do I still have energy?
+                                    1. Yes - Goto to 2.2 to process my turn again
+                                    2. No - Skip to 3
+                            2. No - Mark as desired action, Finish my turn, replenish energy
+                    3. End of turn events
+                    4. Return to caller
+
+                    """
+                    g.state = g.state.update()
+                except Exception:
+                    logger.exception("Caught error from on_event")
     finally:
         if hasattr(g, "world"):
             save_world(g.world, SAVE_PATH)
@@ -118,8 +160,6 @@ More actions that should have costs:
 - equip/unequip
 TODO - if a player tries to do two actions with a 50 weight, they will only do 1 per turn
 - Need to set the desired action, then attempt it next turn
-- If a player attempts to perform an action with a cost greater than their energy,
-the user has to double click to perform the action
 
 https://github.com/jossse69/Python-RL/blob/main/components/equippable.py
 Apply status effects to ground. Poison/confusion/burn
@@ -205,4 +245,10 @@ TODO:
 
 - Add weapon str/dex requirements
 Energy to enter/leave a tile type
+
+# Fix mouse hover not accounting for camera, and selection mode
+# Todo - are end of turn effects happening too frequently?
+
+Todo - use potion showing weird glitch
+The AI won't attack, stuck in follow mode
 """

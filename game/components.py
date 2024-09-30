@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Final, NamedTuple, NewType, Self
+from typing import Any, Callable, Dict, Final, NamedTuple, NewType, Protocol, Self
 
 import attrs
 import numpy as np
@@ -16,10 +16,19 @@ from game.constants import TraitActivation, TraitTarget
 from game.effect import Effect
 from game.tags import IsIn, IsItem, IsPlayer
 
+# TODO - refactor
+class BaseAI(Protocol):
+
+    __slots__ = ()
+
+    def get_action(self, actor: tcod.ecs.Entity) -> Action:
+        """Get the next action the AI wants to perform"""
+        ...
+
 @attrs.define
 class AIBuilder:
     """Create an Action (AI) instance from an action class + parameters"""
-    ai: type[Action]
+    ai: type[BaseAI]
     kwargs: Dict[str, Any] | None = None
 
     def build(self):
@@ -51,6 +60,11 @@ class Position:
         assert self.map == other.map
         return (self.x - other.x) ** 2 + (self.y - other.y) ** 1
 
+@attrs.define(frozen=True)
+class DelayedAction:
+    # An action that can take multiple turns due to a the player's speed being
+    # lower than the action cost
+    action: Action
 
 
 @attrs.define(frozen=True)
@@ -74,7 +88,7 @@ class MapShape(NamedTuple):
     height: int
     width: int
 
-
+# Map related components
 Tiles: Final = ("Tiles", NDArray[np.int8])
 """The tile indexes of a map entity."""
 
@@ -84,14 +98,27 @@ VisibleTiles: Final = ("VisibleTiles", NDArray[np.bool])
 MemoryTiles: Final = ("MemoryTiles", NDArray[np.int8])
 """Last seen tiles for a map."""
 
+Floor: Final = ("Floor", int)
+"""Dungeon floor."""
+
+# Entity related components
 Name: Final = ("Name", str)
 """Name of an entity."""
+
+AI: Final = ("AI", BaseAI)
+"""Action for AI actor."""
 
 Energy: Final = ("Energy", int)
 """How much energy entities have to perform actions"""
 
 Speed: Final = ("Speed", int)
 """How quickly entities regain energy"""
+
+AttackSpeed: Final = ("Speed", float)
+"""Inverse multiplier for attack action cost. 0.5 is 2x cost"""
+
+MoveSpeed: Final = ("Speed", float)
+"""Inverse multiplier for move action cost. 0.5 is 2x cost"""
 
 HP: Final = ("HP", int)
 """Current hit points."""
@@ -110,12 +137,6 @@ Attack: Final = ("Attack", str)
 
 Defense: Final = ("Defense", int)
 """Defense stat for the entity."""
-
-AI: Final = ("AI", Action)
-"""Action for AI actor."""
-
-Floor: Final = ("Floor", int)
-"""Dungeon floor."""
 
 Level: Final = ("Level", int)
 """Character level."""
@@ -144,7 +165,7 @@ LootDropChance: Final = ("LootDropChance", float)
 """Chance the entity has to drop loot on death."""
 
 
-
+# Equipment stats
 # EquipSlotType = NewType('EquipSlotType', tuple[object])
 EquipSlot: Final = ("EquipSlot", int)
 """Name of the equipment slot this item uses."""
@@ -158,6 +179,7 @@ DefenseBonus: Final = ("DefenseBonus", int)
 HPBonus: Final = ("HPBonus", int)
 """Bonus health."""
 
+# Inventory
 AssignedKey: Final = ("AssignedKey", str)
 """Name of the KeySym for this item."""
 

@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     import tcod.context
     import tcod.ecs
 
+    import game.input_manager
     import game.state
 
 context: tcod.context.Context
@@ -25,3 +26,6 @@ world: tcod.ecs.Registry
 
 cursor_location: tuple[int, int] | None = None
 """Mouse or cursor screen position."""
+
+inputs: game.input_manager.InputManager
+"""The keyboard state manager"""

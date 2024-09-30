@@ -11,6 +11,7 @@ import game.world.procgen
 from game.combat.combat_types import DamageType, DamageResistance
 from game.components import (
     AIBuilder,
+    AttackSpeed,
     HP,
     Defense,
     DefenseBonus,
@@ -20,6 +21,7 @@ from game.components import (
     HPBonus,
     LootDropChance,
     MaxHP,
+    MoveSpeed,
     Name,
     Position,
     PowerBonus,
@@ -111,6 +113,8 @@ def init_new_creature(
     attack: str,
     defense: int,
     speed: int,
+    attack_speed: float,
+    move_speed: float,
     xp: int,
     loot_pct: float,
     damage_type: DamageType,
@@ -131,6 +135,8 @@ def init_new_creature(
     race.components[Graphic] = Graphic(ch, fg)
     race.components[Energy] = energy
     race.components[Speed] = speed
+    race.components[AttackSpeed] = attack_speed
+    race.components[MoveSpeed] = move_speed
     race.components[HP] = race.components[MaxHP] = hp
     race.components[Attack] = attack
     race.components[DamageType] = damage_type
@@ -188,6 +194,8 @@ def init_creatures(world: tcod.ecs.Registry) -> None:
             attack=creature.attack,
             defense=creature.defense,
             speed=creature.speed,
+            attack_speed=creature.attack_speed,
+            move_speed=creature.move_speed,
             xp=creature.xp,
             loot_pct=creature.loot_drop_pct,
             damage_type=creature.damage_type,

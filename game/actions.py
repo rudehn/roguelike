@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Literal, Self
+from random import Random
+from typing import Literal, Final, TYPE_CHECKING, Self
 
 import attrs
 import tcod.ecs  # noqa: TCH002
 
-from game.action import ActionResult, Impossible, Success
-from game.actor_tools import update_fov
+from game.action import Action, ActionResult, Impossible, Success
+from game.actor_tools import spawn_actor, update_fov
 from game.combat.combat import apply_damage, CombatActionTypes, melee_damage
 from game.components import Effect, EffectsApplied, EquipSlot, MapShape, Name, Position, Tiles
 from game.constants import DEFAULT_ACTION_COST
@@ -17,10 +18,14 @@ from game.entity_tools import get_name
 from game.items.item import ApplyAction
 from game.items.item_tools import add_to_inventory, equip_item, unequip_item
 from game.map import MapKey
-from game.world.map_tools import get_map
-from game.ui.messages import add_message
 from game.tags import Affecting, EquippedBy, IsAlive, IsBlocking, IsEffect, IsIn, IsItem, IsPlayer
+from game.travel import path_to
+from game.ui.messages import add_message
+from game.world.map_tools import get_map
 from game.world.tiles import TILES
+
+if TYPE_CHECKING:
+    from game.combat.ai import SpawnerAI
 
 @attrs.define
 class Move:
@@ -28,11 +33,10 @@ class Move:
     cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
     direction: tuple[int, int]
 
-    def __call__(self, entity: tcod.ecs.Entity) -> ActionResult:
-        """Check and apply the movement."""
-        assert -1 <= self.direction[0] <= 1 and -1 <= self.direction[1] <= 1, self.direction  # noqa: PT018
-        if self.direction == (0, 0):
-            return wait(entity)
+    def get_action_state(self, entity: tcod.ecs.Entity) -> ActionResult:
+        """
+        Check if the direction we are attempting to go is valid
+        """
         new_position = entity.components[Position] + self.direction
         map_shape = new_position.map.components[MapShape]
         if not (0 <= new_position.x < map_shape.width and 0 <= new_position.y < map_shape.height):
@@ -42,6 +46,18 @@ class Move:
             return Impossible(f"""Blocked by {TILES["name"][tile_index]}.""")
         if entity.registry.Q.all_of(tags=[IsBlocking, new_position]):
             return Impossible("Something is in the way.")  # Blocked by entity
+        return Success()
+
+
+    def __call__(self, entity: tcod.ecs.Entity) -> ActionResult:
+        """Check and apply the movement."""
+        assert -1 <= self.direction[0] <= 1 and -1 <= self.direction[1] <= 1, self.direction  # noqa: PT018
+        if self.direction == (0, 0):
+            return wait(entity)
+
+        state = self.get_action_state(entity)
+        if isinstance(state, Impossible):
+            return state
 
         entity.components[Position] += self.direction
         return Success()
@@ -57,9 +73,16 @@ class Melee:
     def __call__(self, entity: tcod.ecs.Entity) -> ActionResult:
         """Check and apply the movement."""
         new_position = entity.components[Position] + self.direction
+        print("IN MELEE")
         try:
+            print("Player position")
+            (player,) = entity.registry.Q.all_of(tags=[IsPlayer])
+            print(player.components[Position])
+            print("Searching for position", new_position)
             (target,) = entity.registry.Q.all_of(tags=[IsAlive, new_position])
+            print("Got target")
         except ValueError:
+            print("Nothing to attack")
             return Impossible("Nothing there to attack.")  # No actor at position.
 
         melee_damage(entity, target)
@@ -71,18 +94,57 @@ class Bump:
     """Context sensitive action in a direction."""
 
     direction: tuple[int, int]
-    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
 
-    def __call__(self, entity: tcod.ecs.Entity) -> ActionResult:
+    def __call__(self, entity: tcod.ecs.Entity) -> Action:
         """Check and apply the movement."""
         if self.direction == (0, 0):
-            return wait(entity)
+            return Wait()
         new_position = entity.components[Position] + self.direction
         map_ = entity.components[Position].map
         if entity.registry.Q.all_of(tags=[IsAlive, new_position], relations=[(IsIn, map_)]):
-            return Melee(self.direction)(entity)
-        return Move(self.direction)(entity)
+            return Melee(self.direction)
+        return Move(self.direction)
 
+
+
+@attrs.define
+class FollowPath:
+    """Follow path action."""
+
+    path: list[Position] = attrs.field(factory=list)
+
+    @classmethod
+    def to_dest(cls, actor: tcod.ecs.Entity, dest: Position) -> Self:
+        """Path to a destination."""
+        return cls(path_to(actor, dest))
+
+    def __bool__(self) -> bool:
+        """Return True if a path exists."""
+        return bool(self.path)
+
+    def __call__(self, actor: tcod.ecs.Entity) -> Action:
+        """Move along the path."""
+        if not self.path:
+            # TODO - should indicate this is an impossible action, No path.
+            return Wait()
+        actor_pos: Final = actor.components[Position]
+        dest: Final = self.path.pop(0)
+        # TODO - sometimes these numbers are like (-2, 1), should be bound to [-1, 0, 1]
+        dx = min(1, max(-1, dest.x - actor_pos.x))
+        dy = min(1, max(-1, dest.y - actor_pos.y))
+        action = Move((dx, dy))
+        state = action.get_action_state(actor)
+        if not isinstance(state, Success):
+            self.path = []
+        return action
+
+
+@attrs.define
+class Wait:
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
+
+    def __call__(self, entity: tcod.ecs.Entity) -> ActionResult:
+        return Success()
 
 def wait(entity: tcod.ecs.Entity) -> Success:  # noqa: ARG001
     """Do nothing and return successfully."""
@@ -189,4 +251,53 @@ class MoveLevel:
         (dest_stairs,) = actor.registry.Q.all_of(tags=self.exit_tag, relations=[(IsIn, dest_map)]).get_entities()
         add_message(actor.registry, self.message)
         actor.components[Position] = dest_stairs.components[Position]
+        return Success()
+
+@attrs.define
+class SpawnEntity:
+    spawner: SpawnerAI
+    cost: int = attrs.field(kw_only=True, default=DEFAULT_ACTION_COST)
+
+    def __call__(self, actor: tcod.ecs.Entity) -> ActionResult:
+        actor_pos: Final = actor.components[Position]
+        map_: Final = actor.relation_tag[IsIn]
+        spawned_entity = actor.registry[self.spawner.spawned_entity_name]
+        # Spawn a new entity if the spawn timer is greater than the spawn rate
+        rng = actor.registry[None].components[Random]
+        if self.spawner.spawn_timer >= self.spawner.spawn_rate:
+            self.spawner.spawn_timer = 0
+            # Get a random location near the spawner.
+            x=actor_pos.x + rng.randint(-3, 3)
+            y=actor_pos.y + rng.randint(-3, 3)
+            new_position = Position(x, y, map_)
+            # Check if out of bounds or not walkable
+            map_shape = new_position.map.components[MapShape]
+            tile_index = new_position.map.components[Tiles][new_position.ij]
+
+            tries = 0
+            # TODO - consolidate logic with Move action into function
+            while (
+                not (0 <= new_position.x < map_shape.width and 0 <= new_position.y < map_shape.height) or # Out of bounds
+                (TILES["walk_cost"][tile_index] == 0) or # Not walkable
+                actor.registry.Q.all_of(tags=[IsBlocking, new_position], relations=[(IsIn, map_)]).get_entities() # Blocked by an entity
+            ):
+                x=actor_pos.x + rng.randint(-3, 3)
+                y=actor_pos.y + rng.randint(-3, 3)
+                new_position = Position(x, y, map_)
+                tile_index = new_position.map.components[Tiles][new_position.ij]
+                tries += 1
+                if tries > 10:
+                    return Success() # Wait action; no room to spawn an entity
+
+            spawn_actor(spawned_entity, Position(x, y, map_))
+
+            if self.spawner.visible:
+                spawner_name = actor.components.get(Name, "?")
+                spawned_name = spawned_entity.components.get(Name, "?")
+                add_message(actor.registry,
+                    f"The {spawner_name} spawned a new {spawned_name}!"
+                )
+
+        # Add 1 to the spawn timer.
+        self.spawner.spawn_timer += 1
         return Success()
