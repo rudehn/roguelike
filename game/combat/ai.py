@@ -27,17 +27,11 @@ class HostileAI:
         map_: Final = actor.relation_tag[IsIn]
         dx: Final = target_pos.x - actor_pos.x
         dy: Final = target_pos.y - actor_pos.y
-        print("Calculating distance")
         distance: Final = max(abs(dx), abs(dy))  # Chebyshev distance
-        print("Distance", distance)
         if map_.components[VisibleTiles][actor_pos.ij]:
-            print("Visible")
             if distance <= 1:
-                print("doing melee")
                 return Melee((dx, dy))
             self.path = FollowPath.to_dest(actor, target_pos)
-            print("Creating path")
-            print(self.path.path)
         if self.path:
             return self.path(actor)
         return Wait()

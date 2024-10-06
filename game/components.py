@@ -126,14 +126,17 @@ HP: Final = ("HP", int)
 MaxHP: Final = ("MaxHP", int)
 """Maximum hit points."""
 
-Attack: Final = ("Attack", str)
-"""Damage stat for the entity. Represented by dice notation. Ex 1d4."""
+# Attack: Final = ("Attack", str)
+# """Damage stat for the entity. Represented by dice notation. Ex 1d4."""
 
-# STR: Final = ("STR", int)
-# """Strength stat for the entity."""
+STR: Final = ("STR", int)
+"""Strength stat for the entity."""
 
-# DEX: Final = ("DEX", int)
-# """Dexterity stat for the entity."""
+DEX: Final = ("DEX", int)
+"""Dexterity stat for the entity."""
+
+CON: Final = ("CON", int)
+"""Constitution stat for the entity."""
 
 Defense: Final = ("Defense", int)
 """Defense stat for the entity."""

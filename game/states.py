@@ -19,42 +19,27 @@ import g
 import game.color
 import game.world.world_init
 from game.action import Action, Impossible, Poll, Success  # noqa: TCH001
-from game.action_tools import do_player_action, get_entity_energy, get_entity_speed, update_entity_energy
+from game.action_tools import do_player_action, get_adjusted_action_cost, get_entity_energy, get_entity_speed, update_entity_energy
 from game.actions import ApplyItem, Bump, DropItem, Melee, Move, PickupItem, TakeStairs
-from game.actor_tools import can_level_up, get_player_actor, level_up, required_xp_for_level, update_fov
-from game.components import AI, AttackSpeed, DelayedAction, HP, XP, Defense, Level, MaxHP, MoveSpeed, Position, Attack, Effect
+from game.actor_tools import get_actors_at_position, can_level_up, get_player_actor, level_up, required_xp_for_level, update_fov
+from game.components import AI, AttackSpeed, CON, DelayedAction, DEX, HP, XP, Defense, Level, MaxHP, MoveSpeed, Position, STR, Effect
 from game.constants import CURSOR_Y_KEYS, DIRECTION_KEYS
-from game.combat.combat import get_defense, get_evade_chance
+from game.combat.stats import get_attack, get_crit_chance, get_crit_damage, get_defense, get_entity_with_stat_preview
 from game.entity_tools import get_desc
 from game.effect import remove_effect_from_entity
 from game.items.item_tools import get_inventory_keys
 from game.ui.messages import add_message, Message, MessageLog
-from game.ui.rendering import main_render, render_messages
+from game.ui.rendering import main_render, render_entity_stats, render_messages
 from game.state import State
 from game.tags import IsEffect, IsPlayer, IsIn, Affecting
-
-def get_adjusted_action_cost(entity: Entity, action: Action):
-    print("In adjust function")
-    cost = action.cost
-    if isinstance(action, Move):
-        print("matching move")
-        move_speed = entity.components.get(MoveSpeed, 1.0)
-        cost = int(cost / move_speed)  # 0.5 speed is a 2x increase, 2 speed is a 50% decrease
-    elif isinstance(action, Melee):
-        print("matching melee")
-        attack_speed = entity.components.get(AttackSpeed, 1.0)
-        cost = int(cost / attack_speed)  # 0.5 speed is a 2x increase, 2 speed is a 50% decrease
-    return cost
 
 def process_player_turn(entity: Entity):
     delayed_action = entity.components.get(DelayedAction)
     if delayed_action:
-        print("In game, got delayed action")
         # Try to continue with a previous action
         action = delayed_action.action
     else:
         # Find a new action to perform
-        # print("No delayed action")
         action: Action | None = None
         for key, direction in DIRECTION_KEYS.items():
             if g.inputs.is_key_pressed(key):
@@ -93,14 +78,13 @@ def process_player_turn(entity: Entity):
     # After all actions are taken, start adding our energy back
     update_entity_energy(entity, get_entity_speed(entity))
 
-
     # Now do all effects on the entity
-    for e in entity.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, entity)]):
-        effect = e.components[Effect]
-        consumed = effect.affect(entity)
-        if consumed:
-            remove_effect_from_entity(entity, e)
-
+    if performed_action:
+        for e in entity.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, entity)]):
+            effect = e.components[Effect]
+            consumed = effect.affect(entity)
+            if consumed:
+                remove_effect_from_entity(entity, e)
 
     return False # Player's turn is over
 
@@ -139,11 +123,13 @@ def process_enemy_turn(entity: Entity):
     #     entity.components[DelayedAction] = DelayedAction(action)
 
     # Now do all effects on the entity
-    for e in entity.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, entity)]):
-        effect = e.components[Effect]
-        consumed = effect.affect(entity)
-        if consumed:
-            remove_effect_from_entity(entity, e)
+
+    if performed_action:
+        for e in entity.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, entity)]):
+            effect = e.components[Effect]
+            consumed = effect.affect(entity)
+            if consumed:
+                remove_effect_from_entity(entity, e)
 
 
 @attrs.define
@@ -167,7 +153,7 @@ class InGame(State):
         if g.inputs.is_key_just_pressed(KeySym.ESCAPE):
             return MainMenu()
         elif g.inputs.is_key_just_pressed(KeySym.c):
-            return CharacterScreen()
+            return CharacterScreen(player)
         elif g.inputs.is_key_just_pressed(KeySym.v):
             messages: Reversible[Message] = g.world[None].components[MessageLog]
             return MessageHistoryScreen(log_length=len(messages), cursor=len(messages) - 1)
@@ -176,6 +162,7 @@ class InGame(State):
         elif g.inputs.is_key_just_pressed(KeySym.d):
             return ItemSelect.player_verb(player, "drop", DropItem)
         elif g.inputs.is_key_just_pressed(KeySym.SLASH):
+            print("Doing look")
             return PositionSelect.init_look()
 
         # Can't handle actions on player death
@@ -197,12 +184,10 @@ class InGame(State):
         for entity in player.registry.Q.all_of(components=[AI], relations=[(IsIn, player.relation_tag[IsIn])]):
             process_enemy_turn(entity)
 
-        print("Updating fov")
         update_fov(player) # Update the FOV after every action so we can see fast enemies move before attacking
         if can_level_up(player):
             return LevelUp()
 
-        print("Final return")
         # Stay in the game
         return self
 
@@ -283,7 +268,16 @@ class PositionSelect:
         """Initialize a basic look state."""
         (player,) = g.world.Q.all_of(tags=[IsPlayer])
         g.world["cursor"].components[Position] = player.components[Position]
-        return cls(pick_callback=lambda _: InGame(), cancel_callback=InGame)
+
+        def callback(pos: Position):
+            actors = get_actors_at_position(g.world, pos)
+            if not actors:
+                print("Returning inGAME")
+                return InGame()
+            print("Returning character selection")
+            (actor,) = actors
+            return CharacterScreen(actor)
+        return cls(pick_callback=lambda pos: callback(pos), cancel_callback=InGame)
 
     def update(self) -> State:
         """Handle cursor movement and selection."""
@@ -390,17 +384,17 @@ class LevelUp:
         console.print(
             x=x + 1,
             y=y + 4,
-            string=f"a) Constitution (+20 HP, from {player.components[MaxHP]})",
+            string=f"a) Constitution (+5 HP, from {player.components[MaxHP]})",
         )
         console.print(
             x=x + 1,
             y=y + 5,
-            string=f"b) Attack (+1 attack, from {player.components[Attack]})",
+            string=f"b) Strength (+1 attack, from {player.components[STR]})",
         )
         console.print(
             x=x + 1,
             y=y + 6,
-            string=f"c) Defense (+1 defense, from {player.components[Defense]})",
+            string=f"c) Dexterity (+1 dex, from {player.components[DEX]})",
         )
 
     def update(self) -> State:
@@ -408,18 +402,20 @@ class LevelUp:
         player = get_player_actor(g.world)
 
         if g.inputs.is_key_just_pressed(KeySym.a):
-            player.components[MaxHP] += 20
-            player.components[HP] += 20
+            # TODO - update logic to calculate from CON
+            player.components[CON] += 1
+            player.components[MaxHP] += 5
+            player.components[HP] += 5
             level_up(player)
             add_message(g.world, "Your health improves!")
             return InGame()
         elif g.inputs.is_key_just_pressed(KeySym.b):
-            player.components[Attack] += 1
+            player.components[STR] += 1
             level_up(player)
             add_message(g.world, "You feel stronger!")
             return InGame()
         elif g.inputs.is_key_just_pressed(KeySym.c):
-            player.components[Defense] += 1
+            player.components[DEX] += 1
             level_up(player)
             add_message(g.world, "Your movements are getting swifter!")
             return InGame()
@@ -430,49 +426,15 @@ class LevelUp:
 @attrs.define
 class CharacterScreen:
     """Character screen state."""
+    entity: Entity
 
     def on_draw(self, console: tcod.console.Console) -> None:
         """Draw player stats."""
         main_render(g.world, console)
         console.rgb["fg"] //= 8
         console.rgb["bg"] //= 8
-        x = 1
-        y = 1
 
-        player = get_player_actor(g.world)
-        x = 1
-        y = 1
-
-        title = "Character Information"
-
-        width = len(title) + 6
-
-        console.draw_frame(
-            x=x,
-            y=y,
-            width=width,
-            height=7,
-            title=title,
-            clear=True,
-            fg=(255, 255, 255),
-            bg=(0, 0, 0),
-        )
-
-        console.print(x=x + 1, y=y + 1, string=f"Level: {player.components.get(Level, 1)}")
-        console.print(x=x + 1, y=y + 2, string=f"XP: {player.components.get(XP, 0)}")
-        console.print(
-            x=x + 1,
-            y=y + 3,
-            string=f"XP for next Level: {required_xp_for_level(player) - player.components.get(XP, 0)}",
-        )
-
-        console.print(x=x + 1, y=y + 4, string=f"Attack: {player.components[Attack]}")
-        console.print(x=x + 1, y=y + 5, string=f"Defense: {player.components[Defense]}")
-        # console.print(x=x + 1, y=y + 6, string=f"Damage: {get_min_damage(player)} - {get_max_damage(player)}")
-        # console.print(x=x + 1, y=y + 7, string=f"Block: {get_defense(player)}")
-        # console.print(x=x + 1, y=y + 8, string=f"Crit Chance: {get_crit_chance(player):.0%}")
-        # console.print(x=x + 1, y=y + 9, string=f"Crit Mult: {get_crit_damage_pct(player)}")
-        # console.print(x=x + 1, y=y + 10, string=f"Evade Chance: {get_evade_chance(player):.0%}")
+        render_entity_stats(console, self.entity)
 
     def update(self) -> State:
         """Exit state on any key."""

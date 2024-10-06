@@ -37,6 +37,7 @@ max_monsters_by_floor = (
 """(floor, max_monsters)"""
 
 floor_bosses = {
+    1: "troll",
     5: "troll",
     10: "dragon",
 }

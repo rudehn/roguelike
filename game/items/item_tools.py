@@ -7,7 +7,7 @@ import logging
 from tcod.ecs import Entity, IsA
 
 from game.action import ActionResult, Impossible, Success
-from game.combat.combat import recalculate_stats
+from game.combat.stats import recalculate_stats
 from game.components import AssignedKey, Count, EffectsApplied, EquipSlot, Name, Position, StartingEffects
 from game.constants import INVENTORY_KEYS
 from game.entity_tools import get_name

@@ -12,6 +12,9 @@ from game.combat.combat_types import DamageType, DamageResistance
 from game.components import (
     AIBuilder,
     AttackSpeed,
+    CON,
+    DEX,
+    STR,
     HP,
     Defense,
     DefenseBonus,
@@ -32,7 +35,6 @@ from game.components import (
     StartingEffects,
     RewardXP,
     SpawnWeight,
-    Attack,
 )
 from game.creatures import Creatures
 from game.effect import add_effect_to_entity, Effect
@@ -110,7 +112,9 @@ def init_new_creature(
     ch: int,
     fg: tuple[int, int, int],
     hp: int,
-    attack: str,
+    str: int,
+    con: int,
+    dex: int,
     defense: int,
     speed: int,
     attack_speed: float,
@@ -138,7 +142,9 @@ def init_new_creature(
     race.components[AttackSpeed] = attack_speed
     race.components[MoveSpeed] = move_speed
     race.components[HP] = race.components[MaxHP] = hp
-    race.components[Attack] = attack
+    race.components[STR] = str
+    race.components[DEX] = dex
+    race.components[CON] = con
     race.components[DamageType] = damage_type
     race.components[Defense] = defense
     race.components[RewardXP] = xp
@@ -191,7 +197,9 @@ def init_creatures(world: tcod.ecs.Registry) -> None:
             ch=creature.ch,
             fg=creature.fg,
             hp=creature.hp,
-            attack=creature.attack,
+            str=creature.strength,
+            con=creature.constitution,
+            dex=creature.dexterity,
             defense=creature.defense,
             speed=creature.speed,
             attack_speed=creature.attack_speed,

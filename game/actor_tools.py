@@ -12,8 +12,12 @@ import tcod.map
 from game.components import AI, AIBuilder, XP, EffectsApplied, Graphic, Level, MemoryTiles, Name, Position, RacialTraits, Tiles, TraitActivation, TraitTarget, VisibleTiles
 from game.effect import add_effect_to_entity
 from game.ui.messages import add_message
-from game.tags import IsAlive, IsBlocking, IsGhost, IsIn, IsPlayer, Affecting
+from game.tags import IsActor, IsAlive, IsBlocking, IsGhost, IsIn, IsPlayer, Affecting
 from game.world.tiles import TILES
+
+def get_actors_at_position(registry: tcod.ecs.Registry, pos: Position):
+    actors = registry.Q.all_of(components=[Position], tags=[IsActor, IsAlive, pos], relations=[(IsIn, pos.map)])
+    return actors
 
 
 def get_player_actor(world: tcod.ecs.Registry) -> tcod.ecs.Entity:
@@ -92,7 +96,7 @@ def spawn_actor(template: tcod.ecs.Entity, position: Position) -> tcod.ecs.Entit
 
 def required_xp_for_level(actor: tcod.ecs.Entity) -> int:
     """Return XP needed for the next level."""
-    return 100 + (actor.components.get(Level, 1) - 1) * 150
+    return 5 + (actor.components.get(Level, 1) - 1) * 150
 
 
 def can_level_up(actor: tcod.ecs.Entity) -> bool:

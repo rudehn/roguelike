@@ -8,13 +8,26 @@ import tcod.ecs  # noqa: TCH002
 
 import game.states
 from game.action import Action, Impossible, Poll, Success
+from game.actions import Melee, Move
 from game.actor_tools import can_level_up, update_fov
-from game.components import AI, Energy, HP, Speed
+from game.components import AI, AttackSpeed, Energy, HP, MoveSpeed, Speed
 from game.ui.messages import add_message
 from game.state import State  # noqa: TCH001
 from game.tags import IsIn, IsPlayer
 
 logger = logging.getLogger(__name__)
+
+
+def get_adjusted_action_cost(entity: tcod.ecs.Entity, action: Action):
+    cost = action.cost
+    if isinstance(action, Move):
+        move_speed = entity.components.get(MoveSpeed, 1.0)
+        cost = int(cost / move_speed)  # 0.5 speed is a 2x increase, 2 speed is a 50% decrease
+    elif isinstance(action, Melee):
+        attack_speed = entity.components.get(AttackSpeed, 1.0)
+        cost = int(cost / attack_speed)  # 0.5 speed is a 2x increase, 2 speed is a 50% decrease
+    return cost
+
 
 def get_entity_energy(entity: tcod.ecs.Entity) -> int:
     """Return the entity's energy"""
@@ -39,7 +52,7 @@ def do_player_action(player: tcod.ecs.Entity, action: Action) -> State:
         case Success(message=message):
             if message:
                 add_message(player.registry, message)
-            handle_enemy_turns(player.registry, player.relation_tag[IsIn])
+            #handle_enemy_turns(player.registry, player.relation_tag[IsIn])
         case Poll(state=state):
             return state
         case Impossible(reason=reason):
@@ -49,9 +62,3 @@ def do_player_action(player: tcod.ecs.Entity, action: Action) -> State:
         return game.states.LevelUp()
 
     return game.states.InGame()
-
-
-def handle_enemy_turns(world: tcod.ecs.Registry, map_: tcod.ecs.Entity) -> None:
-    """Perform enemy turns."""
-    for enemy in world.Q.all_of(components=[AI], relations=[(IsIn, map_)]):
-        enemy.components[AI](enemy)

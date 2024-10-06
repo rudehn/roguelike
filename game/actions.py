@@ -10,7 +10,7 @@ import tcod.ecs  # noqa: TCH002
 
 from game.action import Action, ActionResult, Impossible, Success
 from game.actor_tools import spawn_actor, update_fov
-from game.combat.combat import apply_damage, CombatActionTypes, melee_damage
+from game.combat.combat import melee_damage
 from game.components import Effect, EffectsApplied, EquipSlot, MapShape, Name, Position, Tiles
 from game.constants import DEFAULT_ACTION_COST
 from game.effect import remove_effect_from_entity
@@ -73,16 +73,10 @@ class Melee:
     def __call__(self, entity: tcod.ecs.Entity) -> ActionResult:
         """Check and apply the movement."""
         new_position = entity.components[Position] + self.direction
-        print("IN MELEE")
         try:
-            print("Player position")
             (player,) = entity.registry.Q.all_of(tags=[IsPlayer])
-            print(player.components[Position])
-            print("Searching for position", new_position)
             (target,) = entity.registry.Q.all_of(tags=[IsAlive, new_position])
-            print("Got target")
         except ValueError:
-            print("Nothing to attack")
             return Impossible("Nothing there to attack.")  # No actor at position.
 
         melee_damage(entity, target)

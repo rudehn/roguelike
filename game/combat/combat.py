@@ -6,13 +6,16 @@ import enum
 import logging
 from random import Random
 
-import attrs
 import tcod.ecs  # noqa: TCH002
 
 from game.combat.combat_types import AttackData, DamageType, ResistanceLevel
+from game.combat.stats import get_attack, get_crit_chance, get_crit_damage, get_defense
 from game.components import (
     AI,
     HP,
+    STR,
+    DEX,
+    CON,
     XP,
     Defense,
     DefenseBonus,
@@ -26,7 +29,6 @@ from game.components import (
     RewardXP,
     TraitActivation,
     TraitTarget,
-    Attack,
 )
 from game.dice import roll, roll_from_notation
 from game.effect import add_effect_to_entity
@@ -72,16 +74,6 @@ Classes w/ main stats?
 - Luck boosts item generation odds for higher tier loot
 - add negative modifiers for equipment? Heavy armor lowers dex, etc
 """
-class CombatActionTypes(enum.Enum):
-    ATTACK = enum.auto()
-    CRIT = enum.auto()
-    MISSED = enum.auto()
-    BLOCKED = enum.auto()
-
-@attrs.define
-class CombatAction:
-    damage: int
-    action_type: CombatActionTypes
 
 
 def perform_attack(attacker: tcod.ecs.Entity, defender: tcod.ecs.Entity, attack: AttackData):
@@ -90,21 +82,14 @@ def perform_attack(attacker: tcod.ecs.Entity, defender: tcod.ecs.Entity, attack:
     # First roll a d20 to see if we auto crit/miss
     # Crit is an auto-hit, allowing lower level monsters to still provide a threat
     # to the player
-    to_hit = roll(1, 20)
-    is_crit = False
+    crit_chance = get_crit_chance(attacker)
+    is_crit = rng.random() <= crit_chance
     attack_color = "player_atk" if IsPlayer in attacker.tags else "enemy_atk"
     attack_desc = f"""{attacker.components[Name]} attacks {defender.components[Name]}"""
 
-    if to_hit == 1:
-        add_message(attacker.registry, f"{attack_desc} but missed.", attack_color)
-        return
-
-    # TODO roll 2d20, multiply then multiply by accuracy. Compare to 2d20, multiply then multiply by evasion
-    if to_hit == 20:
-        is_crit = True
-
-    # Crit doubles the damage
-    damage = attack.damage_amount * 2 if is_crit else attack.damage_amount
+    # Crit increases the damage
+    crit_mult = get_crit_damage(attacker)
+    damage = attack.damage_amount * crit_mult if is_crit else attack.damage_amount
     resistance = get_resistance_level(defender, attack.damage_type)
     match resistance:
         case ResistanceLevel.WEAK:
@@ -143,7 +128,6 @@ def perform_attack(attacker: tcod.ecs.Entity, defender: tcod.ecs.Entity, attack:
 
 
 
-
 def get_resistance_level(actor: tcod.ecs.Entity, damage_type: DamageType) -> ResistanceLevel:
     resistances = actor.components.get(Resistances, ())
     resistance_level = ResistanceLevel.NONE
@@ -155,49 +139,6 @@ def get_resistance_level(actor: tcod.ecs.Entity, damage_type: DamageType) -> Res
             break
 
     return resistance_level
-
-def recalculate_stats(actor: tcod.ecs.Entity):
-    pass
-    # TODO - need to keep track of base stats + modifiers to base stats
-    # max_hp = actor.components.get(MaxHP, 0)
-
-    # for e in actor.registry.Q.all_of(components=[HPBonus], relations=[(Affecting, actor)]):
-    #     max_hp += e.components[HPBonus]
-
-    # actor.components[MaxHP] = max_hp
-
-
-def get_evade_chance(actor: tcod.ecs.Entity) -> float:
-    """
-    Evade percentage is calculated as follows
-
-    evade = min(.75, (DEX / 2) / 100)
-
-    with dex being the only stat affecting
-    """
-    # dex = actor.components.get(DEX, 0)
-    # evade = min(.75, (dex / 2) / 100)
-    return 0
-
-def get_attack(actor: tcod.ecs.Entity) -> int:
-    """
-    Get an entities attack power.
-    """
-    attack_power = roll_from_notation(actor.components.get(Attack, "0d1"))
-
-    # TODO - should weapons stack on top of base damage?
-    # TODO - weapons should roll dice too
-    for e in actor.registry.Q.all_of(components=[PowerBonus], relations=[(Affecting, actor)]):
-        attack_power += roll_from_notation(e.components[PowerBonus])
-    return attack_power
-
-
-def get_defense(actor: tcod.ecs.Entity) -> int:
-    """Get an entities defense power."""
-    defense_power = actor.components.get(Defense, 0)
-    for e in actor.registry.Q.all_of(components=[DefenseBonus], relations=[(Affecting, actor)]):
-        defense_power += e.components[DefenseBonus]
-    return defense_power
 
 
 def melee_damage(attacker: tcod.ecs.Entity, target: tcod.ecs.Entity):

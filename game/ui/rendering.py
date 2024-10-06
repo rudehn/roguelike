@@ -12,7 +12,21 @@ from numpy.typing import NDArray  # noqa: TCH002
 
 import g
 from game.actor_tools import get_player_actor, required_xp_for_level
-from game.components import HP, XP, Floor, Graphic, MapShape, MaxHP, MemoryTiles, Name, Position, Tiles, VisibleTiles
+from game.combat.stats import (
+    get_attack,
+    get_crit_chance,
+    get_crit_damage,
+    get_current_health,
+    get_defense,
+    get_derived_constitution,
+    get_derived_dexterity,
+    get_derived_strength,
+    get_max_health,
+)
+from game.components import HP, XP, Floor, Graphic, Level, MapShape, MaxHP, MemoryTiles, Name, Position, Tiles, VisibleTiles
+from game.entity_tools import get_name
+
+
 from game.ui.messages import Message, MessageLog
 from game.tags import IsAlive, IsGhost, IsIn, IsItem, IsPlayer
 from game.world.tiles import TILES
@@ -130,7 +144,9 @@ def main_render(  # noqa: C901
         and 0 <= cursor_pos.x < console_slices[1].stop
         and 0 <= cursor_pos.y < console_slices[0].stop
     ):
-        console.rgb[["fg", "bg"]][console_slices][cursor_pos.ij] = ((0, 0, 0), (255, 255, 255))
+        e_screen_y, e_screen_x = cursor_pos.ij[0] - camera_ij[0], cursor_pos.ij[1] - camera_ij[1]
+        translated_pos = Position(e_screen_x, e_screen_y, map_)
+        console.rgb[["fg", "bg"]][console_slices][translated_pos.ij] = ((0, 0, 0), (255, 255, 255))
 
     render_bar(
         console,
@@ -156,4 +172,49 @@ def main_render(  # noqa: C901
     console.print(x=0, y=47, string=f""" Dungeon level: {map_.components.get(Floor, "?")}""", fg=(255, 255, 255))
     render_messages(world, width=40, height=5).blit(dest=console, dest_x=21, dest_y=45)
     if g.cursor_location:
-        render_names_at_position(console, x=21, y=44, pos=Position(*g.cursor_location, map_))
+        e_screen_y, e_screen_x = g.cursor_location[1] + camera_ij[0], g.cursor_location[0] + camera_ij[1]
+        translated_pos = Position(e_screen_x, e_screen_y, map_)
+        render_names_at_position(console, x=21, y=44, pos=translated_pos)
+
+
+def render_entity_stats(console: tcod.console.Console, entity: tcod.ecs.Entity):
+    x = 1
+    y = 1
+
+    name = get_name(entity).capitalize()
+    title = f"{name} Information"
+
+    width = len(title) + 6
+
+    is_player = IsPlayer in entity.tags
+    y_offset = 4 if is_player else 1
+
+    console.draw_frame(
+        x=x,
+        y=y,
+        width=width,
+        height=9 + y_offset,
+        title=title,
+        clear=True,
+        fg=(255, 255, 255),
+        bg=(0, 0, 0),
+    )
+
+    if is_player:
+        console.print(x=x + 1, y=y + 1, string=f"Level: {entity.components.get(Level, 1)}")
+        console.print(x=x + 1, y=y + 2, string=f"XP: {entity.components.get(XP, 0)}")
+        console.print(
+            x=x + 1,
+            y=y + 3,
+            string=f"XP for next Level: {required_xp_for_level(entity) - entity.components.get(XP, 0)}",
+        )
+
+
+    console.print(x=x + 1, y=y_offset + 1, string=f"HP: {get_current_health(entity)}/{get_max_health(entity)}")
+    console.print(x=x + 1, y=y_offset + 2, string=f"CON: {get_derived_constitution(entity)}")
+    console.print(x=x + 1, y=y_offset + 3, string=f"STR: {get_derived_strength(entity)}")
+    console.print(x=x + 1, y=y_offset + 4, string=f"DEX: {get_derived_dexterity(entity)}")
+    console.print(x=x + 1, y=y_offset + 5, string=f"Attack: {get_attack(entity)}")
+    console.print(x=x + 1, y=y_offset + 6, string=f"Defense: {get_defense(entity)}")
+    console.print(x=x + 1, y=y_offset + 7, string=f"Crit Chance: {100 * get_crit_chance(entity)}")
+    console.print(x=x + 1, y=y_offset + 8, string=f"Crit Damage: {get_crit_damage(entity)}x")

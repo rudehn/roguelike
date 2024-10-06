@@ -33,14 +33,12 @@ logger = logging.getLogger(__name__)
 
 def main() -> NoReturn:  # noqa: C901
     """Main entry point."""
-    print("In main")
     logging.basicConfig(level="DEBUG")
     tileset = tcod.tileset.load_tilesheet(TILESET, 16, 16, tcod.tileset.CHARMAP_CP437)
     g.console = tcod.console.Console(*CONSOLE_SIZE)
 
     g.state = game.states.MainMenu()
     g.inputs = game.input_manager.InputManager()
-    print("After inputs")
 
     if SAVE_PATH.exists():
         try:
@@ -74,11 +72,6 @@ def main() -> NoReturn:  # noqa: C901
                                 tileset.render(g.console),
                             )
                         case tcod.event.KeyDown(repeat=repeat):
-                            print("Key down")
-                            print(event.sym)
-                            print(event.sdl_event)
-                            print(event.scancode)
-                            print("repeat", repeat)
                             if not repeat:
                                 g.inputs.add_key_just_pressed(event.sym)
 
@@ -251,4 +244,54 @@ Energy to enter/leave a tile type
 
 Todo - use potion showing weird glitch
 The AI won't attack, stuck in follow mode
+
+Remove references to broken do_player_action code.
+Enemies not following if they lose line of sight
+
+STRENGTH: Increases All Damage, Increases Physical Damage, Increases Crit Damage.
+
+DEXTERITY: Increases Crit Chance, Increases Attack Speed (which is the same as cast speed) Increases movement speed.
+
+INTELLIGENCE Increases Magic Damage, Increases Crit Damage, Increases Magic Effectiveness
+
+WISDOM Increases mana, increases mana regen, increases cooldown reduction.
+
+There are other stats but these are the basics and they fit archetypes as such:
+
+Ranger = STR+DEX Physical Spell Caster = STR+WIS Rouge like = INT+DEX Mage = WIS+INT
+
+
+Set cap for max stats, or set level cap
+
+
+How they chose to handle Armor, on the other hand, is a great example to go by. In this case, damage is calculated as:
+
+Damage = Attack * (1 – 100 * Armor / (Armor + 50 * Attacker Level))
+
+It may not be immediately apparent, but this formula scales very naturally. The way that Armor is used here ensures that mitigation approaches 100% asymptotically and that it would take an absurd amount to reach “gamebreaking” levels. Also, the math works out so that, for a given amount of Health, a point of armor will consistently add the same amount to a character’s “effective health”, meaning how much raw damage the character can take before dying (e.g. if I have 50% armor mitigation and 100 HP, then my EHP is 200). The most generic form of the above equation can be stated as:
+
+Percent = X / (X + L * K)
+
+Where X is the relevant stat, L is a constant based on attacker level, and K is a second constant to tune the numbers to whatever you think is reasonable. Other examples of games that use a variant of this formula for armor include World of Warcraft and DotA 2. If you want there to be a baseline chance C (e.g. Dodge is at least 5%), you would use the following adjustment:
+
+Percent = (X + L * K * C) / (X + L * K)
+
+I strongly recommend this for any case where the game
+
+add levels to enemies?
+
+Strength – 1 Health, 1 Attack Power. Warriors get 1 Critical Rating
+
+Dexterity – 1 Dodge Rating, 1 Critical Rating. Assassins get 1 Attack Power (at least they will when they are added to the game)
+
+Intelligence – 2 Spell Power, 1 Mana
+
+Lastly, there’s the general “survivability” stat bundle that is useful for everybody.
+
+Constitution – 2 Health, 1 Resilience
+
+Attack Power and Spell Power is increased by 50% while wielding a two-handed weapon.
+Resilience has a base mitigation of 25% while wielding a shield. Additionally, all shields provide a significant amount of armor and are classified as “light” or “heavy” the same way that other armor pieces are.
+
+Add item stack size
 """
