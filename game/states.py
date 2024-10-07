@@ -24,7 +24,7 @@ from game.actions import ApplyItem, Bump, DropItem, Melee, Move, PickupItem, Tak
 from game.actor_tools import get_actors_at_position, can_level_up, get_player_actor, level_up, required_xp_for_level, update_fov
 from game.components import AI, AttackSpeed, CON, DelayedAction, DEX, HP, XP, Defense, Level, MaxHP, MoveSpeed, Position, STR, Effect
 from game.constants import CURSOR_Y_KEYS, DIRECTION_KEYS
-from game.combat.stats import get_attack, get_crit_chance, get_crit_damage, get_defense, get_entity_with_stat_preview
+from game.combat.stats import get_attack, get_base_dexterity, get_base_constitution, get_base_strength, get_crit_chance, get_crit_damage, get_defense, get_entity_with_stat_preview, get_current_health, get_max_health
 from game.entity_tools import get_desc
 from game.effect import remove_effect_from_entity
 from game.items.item_tools import get_inventory_keys
@@ -357,10 +357,12 @@ class MainMenu:
 @attrs.define
 class LevelUp:
     """Level up state."""
+    cursor: int = 0
+    display_stat_preview: bool = False
+    preview_entity: Entity | None = None
 
     def on_draw(self, console: tcod.console.Console) -> None:
         """Draw the level up menu."""
-        player = get_player_actor(g.world)
         main_render(g.world, console)
         console.rgb["fg"] //= 8
         console.rgb["bg"] //= 8
@@ -384,44 +386,79 @@ class LevelUp:
         console.print(
             x=x + 1,
             y=y + 4,
-            string=f"a) Constitution (+5 HP, from {player.components[MaxHP]})",
+            string=f"a) {"*" if self.cursor == 0 else ""} +1 Constitution",
         )
         console.print(
             x=x + 1,
             y=y + 5,
-            string=f"b) Strength (+1 attack, from {player.components[STR]})",
+            string=f"b) {"*" if self.cursor == 1 else ""} +1 Strength",
         )
         console.print(
             x=x + 1,
             y=y + 6,
-            string=f"c) Dexterity (+1 dex, from {player.components[DEX]})",
+            string=f"c) {"*" if self.cursor == 2 else ""} +1 Dexterity",
         )
+
+        if self.display_stat_preview:
+            player = get_player_actor(g.world)
+            kwargs = {
+                0: {"con": get_base_constitution(player) + 1, "hp": get_current_health(player) + 5, "max_hp": get_max_health(player) + 5},
+                1: {"str_": get_base_strength(player) + 1},
+                2: {"dex": get_base_dexterity(player) + 1},
+            }[self.cursor]
+            if self.preview_entity:
+                self.preview_entity.clear()
+            self.preview_entity = get_entity_with_stat_preview(player, **kwargs)
+            preview_console = render_entity_stats(self.preview_entity)
+            preview_console.blit(console, dest_x=36)
 
     def update(self) -> State:
         """Apply level up mechanics."""
         player = get_player_actor(g.world)
-
-        if g.inputs.is_key_just_pressed(KeySym.a):
-            # TODO - update logic to calculate from CON
-            player.components[CON] += 1
-            player.components[MaxHP] += 5
-            player.components[HP] += 5
-            level_up(player)
-            add_message(g.world, "Your health improves!")
-            return InGame()
+        if g.inputs.is_key_just_pressed(KeySym.UP):
+            self.cursor = max(0, self.cursor - 1)
+        elif g.inputs.is_key_just_pressed(KeySym.DOWN):
+            self.cursor = min(2, self.cursor + 1)
+        elif g.inputs.is_key_just_pressed(KeySym.RIGHT):
+            self.display_stat_preview = True
+        elif g.inputs.is_key_just_pressed(KeySym.LEFT):
+            self.display_stat_preview = False
+        elif g.inputs.is_key_just_pressed(KeySym.RETURN):
+            func = {
+                0: self.do_con_levelup,
+                1: self.do_str_levelup,
+                2: self.do_dex_levelup,
+            }[self.cursor]
+            return func(player)
+        elif g.inputs.is_key_just_pressed(KeySym.a):
+            return self.do_con_levelup(player)
         elif g.inputs.is_key_just_pressed(KeySym.b):
-            player.components[STR] += 1
-            level_up(player)
-            add_message(g.world, "You feel stronger!")
-            return InGame()
+            return self.do_str_levelup(player)
         elif g.inputs.is_key_just_pressed(KeySym.c):
-            player.components[DEX] += 1
-            level_up(player)
-            add_message(g.world, "Your movements are getting swifter!")
-            return InGame()
+            return self.do_dex_levelup(player)
 
         return self
 
+    def do_con_levelup(self, player: Entity):
+        # TODO - update logic to calculate from CON
+        player.components[CON] += 1
+        player.components[MaxHP] += 5
+        player.components[HP] += 5
+        level_up(player)
+        add_message(g.world, "Your health improves!")
+        return InGame()
+
+    def do_str_levelup(self, player: Entity):
+        player.components[STR] += 1
+        level_up(player)
+        add_message(g.world, "You feel stronger!")
+        return InGame()
+
+    def do_dex_levelup(self, player: Entity):
+        player.components[DEX] += 1
+        level_up(player)
+        add_message(g.world, "Your movements are getting swifter!")
+        return InGame()
 
 @attrs.define
 class CharacterScreen:
@@ -434,7 +471,8 @@ class CharacterScreen:
         console.rgb["fg"] //= 8
         console.rgb["bg"] //= 8
 
-        render_entity_stats(console, self.entity)
+        stats_console = render_entity_stats(self.entity)
+        stats_console.blit(console)
 
     def update(self) -> State:
         """Exit state on any key."""
@@ -474,8 +512,10 @@ class MessageHistoryScreen():
 
     def update(self) -> State:
         """Exit state on any key."""
+        adjust_keys_pressed = False
         for key, adjust in CURSOR_Y_KEYS.items():
-            if g.inputs.is_key_just_pressed(key):
+            if g.inputs.is_key_pressed(key):
+                adjust_keys_pressed = True
                 if adjust < 0 and self.cursor == 0:
                     # Only move from the top to the bottom when you're on the edge.
                     self.cursor = self.log_length - 1
@@ -489,6 +529,6 @@ class MessageHistoryScreen():
             self.cursor = 0 # Move directly to the top message
         elif g.inputs.is_key_just_pressed(KeySym.END):
             self.cursor = self.log_length - 1  # Move directly to the last message
-        elif g.inputs.is_any_key_just_pressed():
+        elif not adjust_keys_pressed and g.inputs.is_any_key_just_pressed():
             return InGame()  # Any other key moves back to the main menu
         return self

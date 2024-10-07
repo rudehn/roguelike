@@ -177,23 +177,25 @@ def main_render(  # noqa: C901
         render_names_at_position(console, x=21, y=44, pos=translated_pos)
 
 
-def render_entity_stats(console: tcod.console.Console, entity: tcod.ecs.Entity):
+def render_entity_stats(entity: tcod.ecs.Entity):
     x = 1
     y = 1
 
     name = get_name(entity).capitalize()
     title = f"{name} Information"
 
-    width = len(title) + 6
-
     is_player = IsPlayer in entity.tags
     y_offset = 4 if is_player else 1
+
+    width = len(title) + 6 + 1
+    height = 9 + y_offset + 1
+    console = tcod.console.Console(width=width, height=height)
 
     console.draw_frame(
         x=x,
         y=y,
-        width=width,
-        height=9 + y_offset,
+        width=width-1,
+        height=height-1,
         title=title,
         clear=True,
         fg=(255, 255, 255),
@@ -217,4 +219,6 @@ def render_entity_stats(console: tcod.console.Console, entity: tcod.ecs.Entity):
     console.print(x=x + 1, y=y_offset + 5, string=f"Attack: {get_attack(entity)}")
     console.print(x=x + 1, y=y_offset + 6, string=f"Defense: {get_defense(entity)}")
     console.print(x=x + 1, y=y_offset + 7, string=f"Crit Chance: {100 * get_crit_chance(entity)}")
-    console.print(x=x + 1, y=y_offset + 8, string=f"Crit Damage: {get_crit_damage(entity)}x")
+    console.print(x=x + 1, y=y_offset + 8, string=f"Crit Damage: {get_crit_damage(entity):.2f}x")
+
+    return console

@@ -1,6 +1,6 @@
 import tcod.ecs
 
-from game.components import CON, Defense, DefenseBonus, DEX, HP, MaxHP, PowerBonus, STR
+from game.components import all_stat_components, CON, Defense, DefenseBonus, DEX, HP, MaxHP, Name, PowerBonus, STR
 from game.tags import Affecting
 from game.dice import roll_from_notation
 
@@ -47,17 +47,17 @@ def get_crit_chance(entity: tcod.ecs.Entity):
     # Crit chance is 2% * dex
     # Return a value between [0-1 ]
     dex = get_derived_dexterity(entity)
-    return .02 * dex
+    return .01 * dex
 
 def get_crit_damage(entity: tcod.ecs.Entity):
     """
-    Crit damage is heavily based on strength, and slightly on dex
+    Crit damage is heavily based on dex, and slightly on strength
     Return a multiplier for damage. Ex 2.0 is 200% more damage
     """
     str_ = get_derived_strength(entity)
     dex = get_derived_dexterity(entity)
 
-    return 1 + (.1 * str_) + (.05 * dex)
+    return 1 + (.05 * str_) + (.15 * dex)
 
 
 
@@ -83,12 +83,23 @@ def recalculate_stats(actor: tcod.ecs.Entity):
 def get_entity_with_stat_preview(actor: tcod.ecs.Entity, *,
                                  str_: int| None = None,
                                  con: int | None = None,
-                                 dex: int | None = None):
-    clone = actor.instantiate()
+                                 dex: int | None = None,
+                                 hp: int | None = None,
+                                 max_hp: int | None = None):
+    clone = actor.registry.new_entity()
+    clone.components[Name] = actor.components.get(Name, "???")
+    for key, value in actor.components.items():
+        if key in all_stat_components:
+            clone.components[key] = value
+
     if str_:
         clone.components[STR] = str_
     if con:
         clone.components[CON] = con
     if dex:
         clone.components[DEX] = dex
+    if hp:
+        clone.components[HP] = hp
+    if max_hp:
+        clone.components[MaxHP] = max_hp
     return clone

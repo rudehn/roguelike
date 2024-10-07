@@ -294,4 +294,5 @@ Attack Power and Spell Power is increased by 50% while wielding a two-handed wea
 Resilience has a base mitigation of 25% while wielding a shield. Additionally, all shields provide a significant amount of armor and are classified as “light” or “heavy” the same way that other armor pieces are.
 
 Add item stack size
+todo - need to increase health on level up, what does CON do?
 """

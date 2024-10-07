@@ -167,6 +167,8 @@ RacialTraits: Final = ("RacialTraits", tuple[RacialTrait, ...])
 LootDropChance: Final = ("LootDropChance", float)
 """Chance the entity has to drop loot on death."""
 
+all_stat_components = [Speed, AttackSpeed, MoveSpeed, HP, MaxHP, STR, DEX, CON, Defense, Resistances]
+
 
 # Equipment stats
 # EquipSlotType = NewType('EquipSlotType', tuple[object])
