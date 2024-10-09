@@ -188,6 +188,10 @@ HPBonus: Final = ("HPBonus", int)
 AssignedKey: Final = ("AssignedKey", str)
 """Name of the KeySym for this item."""
 
+
+MaxCount: Final = ("MaxCount", int)
+"""Max stack size for this item type."""
+
 Count: Final = ("Count", int)
 """Stacked item count."""
 

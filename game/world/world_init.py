@@ -23,6 +23,7 @@ from game.components import (
     Graphic,
     HPBonus,
     LootDropChance,
+    MaxCount,
     MaxHP,
     MoveSpeed,
     Name,
@@ -86,12 +87,14 @@ def init_new_equippable(
     hp_bonus: int | None = None,
     effects_applied: tuple[str] | None = None,
     spawn_weight: tuple[tuple[int, int], ...] | None = None,
+    max_stack_size: int = 1,
 ):
     equippable = world[name]
     equippable.tags.add(IsItem)
     equippable.components[Name] = name.replace("_", " ").capitalize()
     equippable.components[Graphic] = Graphic(ch, fg)
     equippable.components[EquipSlot] = "weapon" if equip_slot == EquipmentSlots.WEAPON else "armor"
+    equippable.components[MaxCount] = max_stack_size
     if power_bonus:
         equippable.components[PowerBonus] = power_bonus
     if defense_bonus:
@@ -223,6 +226,7 @@ def init_items(world: tcod.ecs.Registry) -> None:
     health_potion.components[Effect] = Healing(4)
     health_potion.components[ApplyAction] = Potion()
     health_potion.components[SpawnWeight] = ((1, 35),)
+    health_potion.components[MaxCount] = 5
 
     confusion_scroll = world["confusion_scroll"]
     confusion_scroll.tags.add(IsItem)
@@ -233,6 +237,7 @@ def init_items(world: tcod.ecs.Registry) -> None:
     # confusion_scroll.components[ApplyAction] = RandomTargetScroll(maximum_range=5)
     # confusion_scroll.components[EntitySpell] = Confusion(duration=10)
     confusion_scroll.components[SpawnWeight] = ((2, 10),)
+    confusion_scroll.components[MaxCount] = 1
 
     lightning_scroll = world["lightning_scroll"]
     lightning_scroll.tags.add(IsItem)
@@ -241,6 +246,7 @@ def init_items(world: tcod.ecs.Registry) -> None:
     lightning_scroll.components[ApplyAction] = RandomTargetScroll(maximum_range=5)
     lightning_scroll.components[EntitySpell] = LightningBolt(damage=10)
     lightning_scroll.components[SpawnWeight] = ((3, 10),)
+    lightning_scroll.components[MaxCount] = 1
 
     fireball_scroll = world["fireball_scroll"]
     fireball_scroll.tags.add(IsItem)
@@ -249,6 +255,7 @@ def init_items(world: tcod.ecs.Registry) -> None:
     fireball_scroll.components[ApplyAction] = TargetScroll()
     fireball_scroll.components[PositionSpell] = Fireball(damage=12, radius=3)
     fireball_scroll.components[SpawnWeight] = ((6, 10),)
+    fireball_scroll.components[MaxCount] = 1
 
     for equipment in EquipmentItems:
         init_new_equippable(

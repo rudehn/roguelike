@@ -283,6 +283,7 @@ class PositionSelect:
         """Handle cursor movement and selection."""
         for key, direction in DIRECTION_KEYS.items():
             if g.inputs.is_key_just_pressed(key):
+                print("updating cursor")
                 g.world["cursor"].components[Position] += direction
         if g.inputs.is_key_just_pressed(KeySym.RETURN) or g.inputs.is_key_just_pressed(KeySym.KP_ENTER) or g.inputs.is_mouse_pressed(MouseButton.LEFT):
             try:

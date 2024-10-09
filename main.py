@@ -123,8 +123,6 @@ TODO
 - Split AI into it's own file
 - One file for protocols?
 - AreaOfEffect an area of effect with just 1 cell is kinda weird...
-- Figure out tags for downstairs & upstairs & how we travel between levels
-- Show a stat screen for enemies?
 
 - More equipment slots
 - Add weapon stats that multiply power
@@ -218,8 +216,6 @@ Replace effect spawner entity key with object()
 
 A player will want an increased loot drop chance if defeating an enemy that's beyond the threat level of the current level.player
 
-Increaes map size w/ camera
-
 Story - in a city, go into sewers, find dungeon, get teleported somewhere
 Add weapons that do different damage types
 
@@ -227,10 +223,7 @@ Add weapons that do different damage types
 TODO:
 - Create 20 levels of dungeon, add monsters in them and 20th floor should have a boss
   - Boss should be able to use a double attack; Ex dragon has breath attack + claws
-- Then create stats system for STR, DEX, CON,
 - Then add chance to miss; accuracy + evade
-- Then update character screen
-- Then add screen to view enemy stats
 - Then add items & refactor item generation code
   - Update attack code to factor in damage type from weapon
 - Then add monsters with items
@@ -240,10 +233,8 @@ TODO:
 Energy to enter/leave a tile type
 
 # Fix mouse hover not accounting for camera, and selection mode
-# Todo - are end of turn effects happening too frequently?
 
 Todo - use potion showing weird glitch
-The AI won't attack, stuck in follow mode
 
 Remove references to broken do_player_action code.
 Enemies not following if they lose line of sight
@@ -293,6 +284,5 @@ Constitution – 2 Health, 1 Resilience
 Attack Power and Spell Power is increased by 50% while wielding a two-handed weapon.
 Resilience has a base mitigation of 25% while wielding a shield. Additionally, all shields provide a significant amount of armor and are classified as “light” or “heavy” the same way that other armor pieces are.
 
-Add item stack size
 todo - need to increase health on level up, what does CON do?
 """
