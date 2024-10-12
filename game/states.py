@@ -31,7 +31,24 @@ from game.items.item_tools import get_inventory_keys
 from game.ui.messages import add_message, Message, MessageLog
 from game.ui.rendering import main_render, render_entity_stats, render_messages
 from game.state import State
-from game.tags import IsEffect, IsPlayer, IsIn, Affecting
+from game.tags import IsEffect, IsPlayer, IsIn, Affecting, IsAlive
+
+def do_player_action(player: Entity, action: Action):
+    if player.components[HP] <= 0:
+        return
+
+    result = action(player)
+    update_fov(player)
+    match result:
+        case Success(message=message):
+            if message:
+                add_message(player.registry, message)
+            #handle_enemy_turns(player.registry, player.relation_tag[IsIn])
+        case Poll(state=state):
+            return state
+        case Impossible(reason=reason):
+            add_message(player.registry, reason, fg="impossible")
+
 
 def process_player_turn(entity: Entity):
     delayed_action = entity.components.get(DelayedAction)
@@ -60,6 +77,7 @@ def process_player_turn(entity: Entity):
     adjusted_cost = get_adjusted_action_cost(entity, action)
 
     if available_energy >= adjusted_cost:
+        print("\n\nI HAVE ENERGY TO PERFORM MY TURN!!!")
         action(entity)
         performed_action = True
         update_entity_energy(entity, -adjusted_cost)
@@ -103,7 +121,7 @@ def process_enemy_turn(entity: Entity):
     adjusted_cost = get_adjusted_action_cost(entity, action)
 
     while available_energy >= adjusted_cost:
-        action(entity)
+        ai.perform_action(action, entity)
         performed_action = True
         update_entity_energy(entity, -adjusted_cost)
         available_energy -= adjusted_cost
@@ -181,7 +199,7 @@ class InGame(State):
             return self
 
         # Update all the enemies in the same map as the player
-        for entity in player.registry.Q.all_of(components=[AI], relations=[(IsIn, player.relation_tag[IsIn])]):
+        for entity in player.registry.Q.all_of(components=[AI], relations=[(IsIn, player.relation_tag[IsIn])], tags=[IsAlive]):
             process_enemy_turn(entity)
 
         update_fov(player) # Update the FOV after every action so we can see fast enemies move before attacking
@@ -272,9 +290,7 @@ class PositionSelect:
         def callback(pos: Position):
             actors = get_actors_at_position(g.world, pos)
             if not actors:
-                print("Returning inGAME")
                 return InGame()
-            print("Returning character selection")
             (actor,) = actors
             return CharacterScreen(actor)
         return cls(pick_callback=lambda pos: callback(pos), cancel_callback=InGame)
@@ -283,7 +299,6 @@ class PositionSelect:
         """Handle cursor movement and selection."""
         for key, direction in DIRECTION_KEYS.items():
             if g.inputs.is_key_just_pressed(key):
-                print("updating cursor")
                 g.world["cursor"].components[Position] += direction
         if g.inputs.is_key_just_pressed(KeySym.RETURN) or g.inputs.is_key_just_pressed(KeySym.KP_ENTER) or g.inputs.is_mouse_pressed(MouseButton.LEFT):
             try:

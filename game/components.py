@@ -10,7 +10,7 @@ import tcod.ecs
 import tcod.ecs.callbacks
 from numpy.typing import NDArray
 
-from game.action import Action
+from game.action import Action, ActionResult
 from game.combat.combat_types import DamageResistance
 from game.constants import TraitActivation, TraitTarget
 from game.effect import Effect
@@ -23,6 +23,10 @@ class BaseAI(Protocol):
 
     def get_action(self, actor: tcod.ecs.Entity) -> Action:
         """Get the next action the AI wants to perform"""
+        ...
+
+    def perform_action(self, action: Action, actor: tcod.ecs.Entity) -> ActionResult:
+        """Perform the action & handle any cleanup code that needs to run"""
         ...
 
 @attrs.define

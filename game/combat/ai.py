@@ -19,6 +19,13 @@ class HostileAI:
 
     path: FollowPath | None = attrs.field(default=None)
 
+    def perform_action(self, action: Action, actor: tcod.ecs.Entity) -> ActionResult:
+        result = action(actor)
+        if isinstance(action, Move) and self.path:
+            # TODO - this seems a little hacky, but how else do we do it?
+            self.path.path.pop(0)
+        return result
+
     def get_action(self, actor: tcod.ecs.Entity) -> Action:
         """Follow and attack player."""
         (target,) = actor.registry.Q.all_of(tags=[IsPlayer])
@@ -28,11 +35,19 @@ class HostileAI:
         dx: Final = target_pos.x - actor_pos.x
         dy: Final = target_pos.y - actor_pos.y
         distance: Final = max(abs(dx), abs(dy))  # Chebyshev distance
+        print("Distance from player", distance)
         if map_.components[VisibleTiles][actor_pos.ij]:
+            print("We are visible")
             if distance <= 1:
+                print("Doing melee")
                 return Melee((dx, dy))
             self.path = FollowPath.to_dest(actor, target_pos)
+            print("Got path", self.path)
+        print("path", self.path)
+        # TODO - if we don't have energy to take the move action for this path, the code below
+        # will pop the path stack & leave no path left
         if self.path:
+            print("I have a path", self.path)
             return self.path(actor)
         return Wait()
 
@@ -41,6 +56,9 @@ class HostileAI:
 class ConfusedAI:
     turns_remaining: int
     previous_ai: Action
+
+    def perform_action(self, action: Action, actor: tcod.ecs.Entity) -> ActionResult:
+        return action(actor)
 
     def get_action(self, actor: tcod.ecs.Entity) -> Action:
          # Revert the AI back to the original state if the effect has run its course
@@ -77,6 +95,9 @@ class SpawnerAI:
     initiated: bool = attrs.field(kw_only=True, default=False)  # Keep track if this spawner has started spawning
     visible: bool = attrs.field(init=False, default=False)
     spawn_timer: int = attrs.field(init=False, default=0)
+
+    def perform_action(self, action: Action, actor: tcod.ecs.Entity) -> ActionResult:
+        return action(actor)
 
     def get_action(self, actor: tcod.ecs.Entity) -> Action:
         # TODO - check if spawned enemy doesn't exist

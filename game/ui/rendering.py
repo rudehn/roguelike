@@ -97,8 +97,8 @@ def main_render(  # noqa: C901
     player = get_player_actor(world)
     map_ = player.relation_tag[IsIn]
     pos = player.components[Position]
-    camera_ij = tcod.camera.get_camera(console.rgb.shape, pos.ij)
-    camera_ij = tcod.camera.clamp_camera((console.height, console.width), map_.components[MapShape], camera_ij)
+    justify = (0, 0)
+    camera_ij = tcod.camera.get_camera(console.rgb.shape, pos.ij, (map_.components[MapShape], justify))
     console_slices, map_slices = tcod.camera.get_slices(
         (console.height, console.width), map_.components[MapShape], camera_ij
     )
@@ -139,14 +139,15 @@ def main_render(  # noqa: C901
     cursor_pos = world["cursor"].components.get(Position)
     if highlight is not None:
         console.rgb[["fg", "bg"]][console_slices][highlight[map_slices]] = ((0, 0, 0), (0xC0, 0xC0, 0xC0))
-    if (
-        cursor_pos is not None
-        and 0 <= cursor_pos.x < console_slices[1].stop
-        and 0 <= cursor_pos.y < console_slices[0].stop
-    ):
+
+    if cursor_pos is not None:
         e_screen_y, e_screen_x = cursor_pos.ij[0] - camera_ij[0], cursor_pos.ij[1] - camera_ij[1]
-        translated_pos = Position(e_screen_x, e_screen_y, map_)
-        console.rgb[["fg", "bg"]][console_slices][translated_pos.ij] = ((0, 0, 0), (255, 255, 255))
+        translated_cursor_pos = Position(e_screen_x, e_screen_y, map_)
+
+        if (0 <= translated_cursor_pos.x < console_slices[1].stop
+            and 0 <= translated_cursor_pos.y < console_slices[0].stop
+        ):
+            console.rgb[["fg", "bg"]][console_slices][translated_cursor_pos.ij] = ((0, 0, 0), (255, 255, 255))
 
     render_bar(
         console,

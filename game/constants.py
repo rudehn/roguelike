@@ -8,7 +8,7 @@ from typing import Final
 from tcod.event import KeySym
 
 CONSOLE_SIZE = (80, 50)
-MAP_SIZE = (120, 120)
+MAP_SIZE = (100, 100)
 
 class TraitTarget(Enum):
     SELF = auto()

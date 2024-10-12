@@ -33,10 +33,13 @@ def spawn_item(template: Entity, position: Position) -> Entity:
 
 def can_stack(entity: Entity, onto: Entity, /) -> bool:
     """Return True if two entities can be stacked."""
+    print(f"entity: count={entity.components.get(Count)}, stack={entity.components.get(MaxCount)}")
+    print(f"onto: count={entity.components.get(Count)}, stack={entity.components.get(MaxCount)}")
     return bool(
         entity.components.get(Name) == onto.components.get(Name)
         and entity.relation_tag.get(IsA) is onto.relation_tag.get(IsA)
-        and onto.components.get(Count, 0) < onto.components.get(MaxCount, 1)
+        and entity.components.get(Count, 0) < onto.components.get(MaxCount, 1)
+        and not onto.relation_tag.get(EquippedBy)
     )
 
 

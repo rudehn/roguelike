@@ -122,14 +122,17 @@ class FollowPath:
             # TODO - should indicate this is an impossible action, No path.
             return Wait()
         actor_pos: Final = actor.components[Position]
-        dest: Final = self.path.pop(0)
+        dest: Final = self.path[0]
         # TODO - sometimes these numbers are like (-2, 1), should be bound to [-1, 0, 1]
-        dx = min(1, max(-1, dest.x - actor_pos.x))
-        dy = min(1, max(-1, dest.y - actor_pos.y))
+        # dx = min(1, max(-1, dest.x - actor_pos.x))
+        # dy = min(1, max(-1, dest.y - actor_pos.y))
+        dx = dest.x - actor_pos.x
+        dy = dest.y - actor_pos.y
         action = Move((dx, dy))
         state = action.get_action_state(actor)
         if not isinstance(state, Success):
-            self.path = []
+            print("I FAILED", state.reason)
+            return Wait()
         return action
 
 

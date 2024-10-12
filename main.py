@@ -116,6 +116,22 @@ def main() -> NoReturn:  # noqa: C901
 if __name__ == "__main__":
     main()
 
+"""
+Bug fixes:
+* Update target scroll position selection to be an action with a cost
+* Dropping an item should be a player action with a cost
+* Equip/Unequip should be a player action with a cost
+* Confusion AI shouldn't assume the entity can move; sometimes it should just make the entity take the wait action
+* Lightning bolt struck rat remains
+* Fix mouse hover not accounting for camera, and selection mode
+* Using last potion was glitching - FIXED?
+* Remove references to broken do_player_action code.
+* is_mouse_pressed is not hooked up
+* Fix position selection goes off the edge of the map
+* Picking up a stack of items will pick up the whole stack & ignore stack size restrictions
+* When polling for player's turn, entities will still move before the player does
+"""
+
 
 """
 TODO
@@ -125,10 +141,8 @@ TODO
 - AreaOfEffect an area of effect with just 1 cell is kinda weird...
 
 - More equipment slots
-- Add weapon stats that multiply power
 - Add events: on turn start/end
 - Add a skill system?
-- Don't like the melee combat system returning a class
 
 - Passive ideas
 - retaliate
@@ -139,18 +153,13 @@ TODO
 
 story line - somebody took my son? Find him on Floor 20; Robin hood style?
 Damage - D4 + 3
-Implement camera system
 Make dungeons small at low levels but grow larger w/ more/bigger rooms
 
 Update ActionResult to return an alternative action with it's own cost
 Make armor/items affect speed
 make different types of units have different walk speeds, but consistent attack speeds
 
-More actions that should have costs:
-- dropping an item
-- equip/unequip
-TODO - if a player tries to do two actions with a 50 weight, they will only do 1 per turn
-- Need to set the desired action, then attempt it next turn
+Proficiency ideas: https://www.reddit.com/r/roguelikedev/comments/1fva9ne/comment/lq9sxdz/
 
 https://github.com/jossse69/Python-RL/blob/main/components/equippable.py
 Apply status effects to ground. Poison/confusion/burn
@@ -159,8 +168,6 @@ https://github.com/jossse69/Python-RL/blob/main/entity_factories.py
 https://github.com/jossse69/Python-RL/blob/main/components/ai.py#L130
 https://github.com/bkeil/CompleteRoguelikeTutorial/blob/master/entity_types.py#L118
 
-Confusion AI shouldn't assume the entity can move; sometimes it should just make the entity take the wait action
-AIs shouldn't have a cost; their actions should have a cost
 
 To apply effects to a target, I think I need to fetch all Effects for equipables effecting myself (somehow get the armor in there)
 and then I need to "build" the effect & attach it to the target entity. When It's attached, we check if the target
@@ -173,7 +180,6 @@ Add effect strings when the effect is initiated
 
 # Organize components & other code
 print messages when picking up loot
-lightning bolt struck the remains of rat
 refactor potions to use DB of effects
 
 Update combat system;
@@ -231,25 +237,6 @@ TODO:
 
 - Add weapon str/dex requirements
 Energy to enter/leave a tile type
-
-# Fix mouse hover not accounting for camera, and selection mode
-
-Todo - use potion showing weird glitch
-
-Remove references to broken do_player_action code.
-Enemies not following if they lose line of sight
-
-STRENGTH: Increases All Damage, Increases Physical Damage, Increases Crit Damage.
-
-DEXTERITY: Increases Crit Chance, Increases Attack Speed (which is the same as cast speed) Increases movement speed.
-
-INTELLIGENCE Increases Magic Damage, Increases Crit Damage, Increases Magic Effectiveness
-
-WISDOM Increases mana, increases mana regen, increases cooldown reduction.
-
-There are other stats but these are the basics and they fit archetypes as such:
-
-Ranger = STR+DEX Physical Spell Caster = STR+WIS Rouge like = INT+DEX Mage = WIS+INT
 
 
 Set cap for max stats, or set level cap

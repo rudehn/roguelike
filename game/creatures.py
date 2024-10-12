@@ -61,6 +61,20 @@ armor protection (roll pierce vs protect, 1 succeed reduce armor by 1/2, 2 succe
 
 Do we need a base HP value?
 health on level up?
+
+Each enemy should have a unique feel. A combination of stats + (future) skills that defines who that enemy is
+For example, rats swarm and do little damage, trolls regenerate, etc
+
+Some ideas:
+* spawners should be hard to kill, spawn less frequently and be on the wall (like a rats nest)
+* Slow enemy that deals huge damage
+* Enemy with double attack
+* a defensive tank
+* a buffer that stays away from the player, groups with other creatures and provides some buff
+* A ranged attacker
+* A healer
+* An invisible attacker, becomes visible on attack
+* An enemy with enhanced movement speed
 """
 
 Creatures: Final = (
