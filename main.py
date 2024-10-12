@@ -125,11 +125,11 @@ Bug fixes:
 * Lightning bolt struck rat remains
 * Fix mouse hover not accounting for camera, and selection mode
 * Using last potion was glitching - FIXED?
-* Remove references to broken do_player_action code.
+* TargetScroll.on_apply should use a ApplyItem action. May require refactoring ApplyItem, ApplyAction, PositionSpell, EntitySpell
 * is_mouse_pressed is not hooked up
 * Fix position selection goes off the edge of the map
 * Picking up a stack of items will pick up the whole stack & ignore stack size restrictions
-* When polling for player's turn, entities will still move before the player does
+* When polling for player's turn, entities will still move before the player does. Rendering issue?
 """
 
 

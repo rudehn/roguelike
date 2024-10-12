@@ -33,8 +33,6 @@ def spawn_item(template: Entity, position: Position) -> Entity:
 
 def can_stack(entity: Entity, onto: Entity, /) -> bool:
     """Return True if two entities can be stacked."""
-    print(f"entity: count={entity.components.get(Count)}, stack={entity.components.get(MaxCount)}")
-    print(f"onto: count={entity.components.get(Count)}, stack={entity.components.get(MaxCount)}")
     return bool(
         entity.components.get(Name) == onto.components.get(Name)
         and entity.relation_tag.get(IsA) is onto.relation_tag.get(IsA)
@@ -89,11 +87,11 @@ def add_to_inventory(actor: Entity, item: Entity) -> ActionResult:
     if item.relation_tag.get(IsIn) is actor:
         return Success()  # Already in inventory.
     for held_item in actor.registry.Q.all_of(tags=[IsItem], relations=[(IsIn, actor)]):
+        item.components.setdefault(Count, 1)
         if not can_stack(item, held_item):
             continue
         held_item.components.setdefault(Count, 1)
         held_item.components[Count] += item.components.get(Count, 1)
-        msg = f"You picked up the {get_name(item)}!"
         item.clear()
         return Success(msg)
     try:

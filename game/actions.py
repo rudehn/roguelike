@@ -7,11 +7,12 @@ from typing import Literal, Final, TYPE_CHECKING, Self
 
 import attrs
 import tcod.ecs  # noqa: TCH002
+from tcod.ecs.constants import IsA
 
 from game.action import Action, ActionResult, Impossible, Success
 from game.actor_tools import spawn_actor, update_fov
 from game.combat.combat import melee_damage
-from game.components import Effect, EffectsApplied, EquipSlot, MapShape, Name, Position, Tiles
+from game.components import Count, Effect, EffectsApplied, EquipSlot, MapShape, Name, Position, Tiles
 from game.constants import DEFAULT_ACTION_COST
 from game.effect import remove_effect_from_entity
 from game.entity_tools import get_name
@@ -26,6 +27,27 @@ from game.world.tiles import TILES
 
 if TYPE_CHECKING:
     from game.combat.ai import SpawnerAI
+
+def clone_entity(entity: tcod.ecs.Entity):
+    isa_entity = entity.relation_tag.get(IsA)
+    if isa_entity:
+        clone = isa_entity.instantiate()
+    else:
+        clone = entity.instantiate()
+
+    for key, val in entity.components.items():
+        clone.components[key] = val
+
+    for tag in entity.tags:
+        clone.tags.add(tag)
+
+    for key, val in entity.relation_tags_many.items():
+        clone.relation_tags_many[key] = val
+
+    for key, val in entity.relation_components.items():
+        clone.relation_components[key] = val
+
+    return clone
 
 @attrs.define
 class Move:
@@ -123,15 +145,11 @@ class FollowPath:
             return Wait()
         actor_pos: Final = actor.components[Position]
         dest: Final = self.path[0]
-        # TODO - sometimes these numbers are like (-2, 1), should be bound to [-1, 0, 1]
-        # dx = min(1, max(-1, dest.x - actor_pos.x))
-        # dy = min(1, max(-1, dest.y - actor_pos.y))
         dx = dest.x - actor_pos.x
         dy = dest.y - actor_pos.y
         action = Move((dx, dy))
         state = action.get_action_state(actor)
         if not isinstance(state, Success):
-            print("I FAILED", state.reason)
             return Wait()
         return action
 
@@ -199,8 +217,21 @@ class DropItem:
         assert item.relation_tag[IsIn] is actor
         add_message(actor.registry, f"""You drop the {item.components.get(Name, "?")}!""")
         unequip_item(item)
-        del item.relation_tag[IsIn]
-        item.components[Position] = actor.components[Position]
+        actor.registry.new_entity
+        # Check if it's a stacked item, only drop 1 item from the stack
+        if item.components.get(Count, 1) > 1:
+            dropped_item = clone_entity(item)
+            print("Components", dropped_item.components)
+            del dropped_item.relation_tag[IsIn]
+            del dropped_item.components[Count]
+            item.components[Count] = item.components[Count] - 1
+        else:
+            dropped_item = item
+            del dropped_item.relation_tag[IsIn]
+            if item.components.get(Count):
+                del dropped_item.components[Count]
+
+        dropped_item.components[Position] = actor.components[Position]
         return Success()
 
 

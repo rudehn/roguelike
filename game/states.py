@@ -19,9 +19,9 @@ import g
 import game.color
 import game.world.world_init
 from game.action import Action, Impossible, Poll, Success  # noqa: TCH001
-from game.action_tools import do_player_action, get_adjusted_action_cost, get_entity_energy, get_entity_speed, update_entity_energy
+from game.action_tools import do_player_action, get_adjusted_action_cost, get_entity_energy, get_entity_speed, process_player_turn, update_entity_energy
 from game.actions import ApplyItem, Bump, DropItem, Melee, Move, PickupItem, TakeStairs
-from game.actor_tools import get_actors_at_position, can_level_up, get_player_actor, level_up, required_xp_for_level, update_fov
+from game.actor_tools import get_actors_at_position, can_level_up, get_player_actor, level_up, update_fov
 from game.components import AI, AttackSpeed, CON, DelayedAction, DEX, HP, XP, Defense, Level, MaxHP, MoveSpeed, Position, STR, Effect
 from game.constants import CURSOR_Y_KEYS, DIRECTION_KEYS
 from game.combat.stats import get_attack, get_base_dexterity, get_base_constitution, get_base_strength, get_crit_chance, get_crit_damage, get_defense, get_entity_with_stat_preview, get_current_health, get_max_health
@@ -32,122 +32,6 @@ from game.ui.messages import add_message, Message, MessageLog
 from game.ui.rendering import main_render, render_entity_stats, render_messages
 from game.state import State
 from game.tags import IsEffect, IsPlayer, IsIn, Affecting, IsAlive
-
-def do_player_action(player: Entity, action: Action):
-    if player.components[HP] <= 0:
-        return
-
-    result = action(player)
-    update_fov(player)
-    match result:
-        case Success(message=message):
-            if message:
-                add_message(player.registry, message)
-            #handle_enemy_turns(player.registry, player.relation_tag[IsIn])
-        case Poll(state=state):
-            return state
-        case Impossible(reason=reason):
-            add_message(player.registry, reason, fg="impossible")
-
-
-def process_player_turn(entity: Entity):
-    delayed_action = entity.components.get(DelayedAction)
-    if delayed_action:
-        # Try to continue with a previous action
-        action = delayed_action.action
-    else:
-        # Find a new action to perform
-        action: Action | None = None
-        for key, direction in DIRECTION_KEYS.items():
-            if g.inputs.is_key_pressed(key):
-                action = Bump(direction)(entity)
-        if g.inputs.is_key_just_pressed(KeySym.g):
-            action = PickupItem()
-        elif g.inputs.is_key_pressed(KeySym.PERIOD) and g.inputs.is_key_pressed(KeySym.LSHIFT):
-            action = TakeStairs("down")
-        elif g.inputs.is_key_pressed(KeySym.COMMA) and g.inputs.is_key_pressed(KeySym.LSHIFT):
-            action = TakeStairs("up")
-
-    if not action:
-        return True # Still player's turn
-
-
-    available_energy = get_entity_energy(entity)
-    performed_action = False
-    adjusted_cost = get_adjusted_action_cost(entity, action)
-
-    if available_energy >= adjusted_cost:
-        print("\n\nI HAVE ENERGY TO PERFORM MY TURN!!!")
-        action(entity)
-        performed_action = True
-        update_entity_energy(entity, -adjusted_cost)
-        available_energy -= adjusted_cost
-
-    # If we performed an action this turn, remove any existing delayedActions on the entity
-    if performed_action:
-        entity.components.pop(DelayedAction, None)
-        if available_energy > 0:
-            # We want to try and finish our turn with another action, return control
-            return True
-    elif available_energy >= 0:
-        # We didn't perform an action, but still have energy so we started a new action, but didn't finish it
-        entity.components[DelayedAction] = DelayedAction(action)
-
-    # After all actions are taken, start adding our energy back
-    update_entity_energy(entity, get_entity_speed(entity))
-
-    # Now do all effects on the entity
-    if performed_action:
-        for e in entity.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, entity)]):
-            effect = e.components[Effect]
-            consumed = effect.affect(entity)
-            if consumed:
-                remove_effect_from_entity(entity, e)
-
-    return False # Player's turn is over
-
-def process_enemy_turn(entity: Entity):
-    ai = entity.components[AI]
-    available_energy = get_entity_energy(entity)
-    performed_action = False
-
-    # First check if the entity has an ongoing action
-    # delayed_action = entity.components.get(DelayedAction)
-    # if delayed_action:
-    #     action = delayed_action.action
-    # else:
-    action = ai.get_action(entity)
-
-    adjusted_cost = get_adjusted_action_cost(entity, action)
-
-    while available_energy >= adjusted_cost:
-        ai.perform_action(action, entity)
-        performed_action = True
-        update_entity_energy(entity, -adjusted_cost)
-        available_energy -= adjusted_cost
-
-        # Get new action and cost
-        action = ai.get_action(entity)
-        adjusted_cost = get_adjusted_action_cost(entity, action)
-
-    # After all actions are taken, start adding our energy back
-    update_entity_energy(entity, get_entity_speed(entity))
-
-    # If we performed an action this turn, remove any existing delayedActions on the entity
-    # if performed_action:
-    #     entity.components.pop(DelayedAction, None)
-    # elif available_energy >= 0:
-    #     # We still have energy left over this turn, so we started a new action, but didn't finish it
-    #     entity.components[DelayedAction] = DelayedAction(action)
-
-    # Now do all effects on the entity
-
-    if performed_action:
-        for e in entity.registry.Q.all_of(components=[Effect], tags=[IsEffect], relations=[(Affecting, entity)]):
-            effect = e.components[Effect]
-            consumed = effect.affect(entity)
-            if consumed:
-                remove_effect_from_entity(entity, e)
 
 
 @attrs.define
@@ -180,34 +64,13 @@ class InGame(State):
         elif g.inputs.is_key_just_pressed(KeySym.d):
             return ItemSelect.player_verb(player, "drop", DropItem)
         elif g.inputs.is_key_just_pressed(KeySym.SLASH):
-            print("Doing look")
             return PositionSelect.init_look()
 
         # Can't handle actions on player death
         if player.components[HP] <= 0:
             return self
 
-            # if not player_action:
-            #     return self # Don't have a continued action & no user input to specify next action
-
-        # TODO - this is messy, clean up the logic
-        # If a player didn't have an action to perform, or had the energy to perform multiple actions
-        # Then it's still the player's turn to process, so kick control back up to main.py
-        still_players_turn = process_player_turn(player)
-        if still_players_turn:
-            update_fov(player)
-            return self
-
-        # Update all the enemies in the same map as the player
-        for entity in player.registry.Q.all_of(components=[AI], relations=[(IsIn, player.relation_tag[IsIn])], tags=[IsAlive]):
-            process_enemy_turn(entity)
-
-        update_fov(player) # Update the FOV after every action so we can see fast enemies move before attacking
-        if can_level_up(player):
-            return LevelUp()
-
-        # Stay in the game
-        return self
+        return process_player_turn(player)
 
     def on_draw(self, console: tcod.console.Console) -> None:
         """Render the current map and entities."""

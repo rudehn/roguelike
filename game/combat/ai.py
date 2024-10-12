@@ -6,7 +6,6 @@ import tcod.ecs
 from game.action import Action, ActionResult, Impossible, Success
 from game.actions import Bump, FollowPath, Melee, Move, SpawnEntity, Wait
 from game.components import AI, MapShape, Name, Position, Tiles, VisibleTiles
-from game.constants import DEFAULT_ACTION_COST
 from game.entity_tools import get_name
 from game.tags import IsBlocking, IsIn, IsPlayer
 from game.ui.messages import add_message
@@ -35,19 +34,13 @@ class HostileAI:
         dx: Final = target_pos.x - actor_pos.x
         dy: Final = target_pos.y - actor_pos.y
         distance: Final = max(abs(dx), abs(dy))  # Chebyshev distance
-        print("Distance from player", distance)
         if map_.components[VisibleTiles][actor_pos.ij]:
-            print("We are visible")
             if distance <= 1:
-                print("Doing melee")
                 return Melee((dx, dy))
             self.path = FollowPath.to_dest(actor, target_pos)
-            print("Got path", self.path)
-        print("path", self.path)
         # TODO - if we don't have energy to take the move action for this path, the code below
         # will pop the path stack & leave no path left
         if self.path:
-            print("I have a path", self.path)
             return self.path(actor)
         return Wait()
 
